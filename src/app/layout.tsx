@@ -10,9 +10,9 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Cronograma — Golden Tower Construction",
+  title: "COERIMAR — Gestión de Mantenimiento",
   description:
-    "Sistema de gestión de cronogramas con Diagramas de Gantt, Curva S (EVM), y alertas — Golden Tower Construction SAC.",
+    "Sistema de gestión de mantenimiento de embarcaciones pesqueras — Procesos de Mantenimiento y Diagramas de Gantt.",
 };
 
 export default function RootLayout({

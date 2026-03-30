@@ -6,12 +6,24 @@ import { useRouter } from 'next/navigation';
 
 export function NewProjectButton() {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Maintenance fields
+  const [cliente, setCliente] = useState('');
+  const [embarcacion, setEmbarcacion] = useState('');
+  const [ordenCompra, setOrdenCompra] = useState('');
+  const [fechaIngreso, setFechaIngreso] = useState('');
+  const [cantAparejosReparar, setCantAparejosReparar] = useState(0);
+  const [cantAparejosIrreparables, setCantAparejosIrreparables] = useState(0);
+  const [codigosAparejos, setCodigosAparejos] = useState('');
+  const [cantRodamientosCambiar, setCantRodamientosCambiar] = useState(0);
+  const [codigosRodamientos, setCodigosRodamientos] = useState('');
+  const [cantCancamosCambiar, setCantCancamosCambiar] = useState(0);
+  const [codigosCancamos, setCodigosCancamos] = useState('');
+  const [cantPinesCambiar, setCantPinesCambiar] = useState(0);
+  const [codigosPines, setCodigosPines] = useState('');
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -27,20 +39,34 @@ export function NewProjectButton() {
       return;
     }
 
-    // [AUTO-HEAL FIX]: If the user accidentally wiped their "profiles" DB table, 
-    // the trigger is gone but their Auth Session remains. When they insert a project,
-    // the DB throws a FATAL 500 because owner_id points to a non-existent profile.
     // Let's self-heal their profile just in case before inserting.
-    await supabase.from('profiles').insert({ id: user.id }).select().single();
+    await supabase.from('profiles').upsert({ id: user.id });
+
+    const calculatedStartDate = fechaIngreso || new Date().toISOString().split('T')[0];
+    const calculatedEndDate = new Date(new Date(calculatedStartDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const computedName = embarcacion ? `Mantenimiento ${embarcacion}` : 'Nuevo Proyecto';
 
     const { data, error: insertError } = await supabase
       .from('projects')
       .insert({
-        name,
-        description: description || null,
-        start_date: startDate,
-        end_date: endDate,
+        name: computedName,
+        description: null,
+        start_date: calculatedStartDate,
+        end_date: calculatedEndDate,
         owner_id: user.id,
+        cliente,
+        embarcacion,
+        orden_compra: ordenCompra,
+        fecha_ingreso: fechaIngreso || null,
+        cant_aparejos_reparar: cantAparejosReparar,
+        cant_aparejos_irreparables: cantAparejosIrreparables,
+        codigos_aparejos: codigosAparejos,
+        cant_rodamientos_cambiar: cantRodamientosCambiar,
+        codigos_rodamientos: codigosRodamientos,
+        cant_cancamos_cambiar: cantCancamosCambiar,
+        codigos_cancamos: codigosCancamos,
+        cant_pines_cambiar: cantPinesCambiar,
+        codigos_pines: codigosPines,
       })
       .select()
       .single();
@@ -50,12 +76,60 @@ export function NewProjectButton() {
       setError('Error al crear proyecto: ' + insertError.message);
       setLoading(false);
     } else {
-      // Also add the owner as an admin member
+      // 1. Add owner as admin
       await supabase.from('project_members').insert({
         project_id: data.id,
         user_id: user.id,
         role: 'admin',
       });
+
+      // 2. Auto-generate maintenance stages (Gantt)
+      const stages = [
+        'INSPECCION VISUAL INICIAL',
+        'DESMONTAJE DE APAREJOS',
+        'ARENADO DE APAREJOS',
+        'BASE EPOXICA INICIAL',
+        'SOLDADO DE POLEAS',
+        'MECANIZADO DE POLEAS',
+        'BASE EPOXICA DE POLEAS',
+        'SOLDADO DE CASCOS',
+        'ESMERILADO DE CASCOS',
+        'BASE EPOXICA DE CASCOS',
+        'MECANIZADO O CAMBIO DE PINES',
+        'CONTROL DE CALIDAD DE COMPONENTES',
+        'ENSAMBLE DE APAREJOS DE IZAJE',
+        'PINTURA Y PROTECCION DE APAREJO',
+        'EMBALADO DE APAREJOS',
+        'PRODUCTO TERMINADO'
+      ];
+
+      const { data: partida } = await supabase
+        .from('partidas')
+        .insert({ project_id: data.id, name: 'ETAPA DE MANTENIMIENTO', sort_order: 1 })
+        .select()
+        .single();
+
+      if (partida) {
+        const { data: item } = await supabase
+          .from('items')
+          .insert({ partida_id: partida.id, name: 'PROCESO', sort_order: 1 })
+          .select()
+          .single();
+
+        if (item) {
+          const taskPromises = stages.map((stage, index) => {
+            return supabase.from('activities').insert({
+              item_id: item.id,
+              name: stage,
+              start_date: calculatedStartDate,
+              end_date: calculatedEndDate,
+              sort_order: index + 1,
+              weight: Number((100 / stages.length).toFixed(2))
+            });
+          });
+          await Promise.all(taskPromises);
+        }
+      }
 
       setOpen(false);
       resetForm();
@@ -64,10 +138,19 @@ export function NewProjectButton() {
   };
 
   const resetForm = () => {
-    setName('');
-    setDescription('');
-    setStartDate('');
-    setEndDate('');
+    setCliente('');
+    setEmbarcacion('');
+    setOrdenCompra('');
+    setFechaIngreso('');
+    setCantAparejosReparar(0);
+    setCantAparejosIrreparables(0);
+    setCodigosAparejos('');
+    setCantRodamientosCambiar(0);
+    setCodigosRodamientos('');
+    setCantCancamosCambiar(0);
+    setCodigosCancamos('');
+    setCantPinesCambiar(0);
+    setCodigosPines('');
     setError(null);
     setLoading(false);
   };
@@ -81,108 +164,100 @@ export function NewProjectButton() {
         Nuevo Proyecto
       </button>
 
-      {/* Modal */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-all"
             onClick={() => { setOpen(false); resetForm(); }}
           />
 
-          {/* Modal content */}
-          <div className="relative glass-card p-8 w-full max-w-lg fade-in">
-            <h2 className="text-xl font-bold text-surface-100 mb-6">Nuevo Proyecto</h2>
+          <div className="relative glass-card w-full max-w-2xl max-h-[95vh] flex flex-col fade-in shadow-2xl rounded-2xl overflow-hidden bg-white">
+            <div className="px-8 py-6 shrink-0 border-b border-surface-200/5 bg-surface-50/50 flex items-center justify-between">
+              <h2 className="text-xl font-black text-surface-200 uppercase tracking-wide">Nuevo Proyecto de Mantenimiento</h2>
+              <button onClick={() => { setOpen(false); resetForm(); }} className="text-surface-200/50 hover:text-danger-500 transition-colors">
+                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="proj-name" className="block text-sm font-medium text-surface-200/80 mb-2">
-                  Nombre del Proyecto *
-                </label>
-                <input
-                  id="proj-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ej: Edificio Torre Norte"
-                  required
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="proj-desc" className="block text-sm font-medium text-surface-200/80 mb-2">
-                  Descripción
-                </label>
-                <textarea
-                  id="proj-desc"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Descripción breve del proyecto..."
-                  rows={3}
-                  className="input-field resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="proj-start" className="block text-sm font-medium text-surface-200/80 mb-2">
-                    Fecha Inicio *
-                  </label>
-                  <input
-                    id="proj-start"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    required
-                    className="input-field"
-                  />
+            <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
+              <form id="newProjectForm" onSubmit={handleSubmit} className="space-y-6">
+              
+              <div className="space-y-6">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Cliente</label>
+                      <input type="text" value={cliente} onChange={(e) => setCliente(e.target.value)} className="input-field py-2" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Embarcación *</label>
+                      <input type="text" value={embarcacion} onChange={(e) => setEmbarcacion(e.target.value)} required className="input-field py-2" placeholder="Ej: Ribar I" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">OC</label>
+                      <input type="text" value={ordenCompra} onChange={(e) => setOrdenCompra(e.target.value)} className="input-field py-2" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Ingreso *</label>
+                      <input type="date" value={fechaIngreso} onChange={(e) => setFechaIngreso(e.target.value)} required className="input-field py-2" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="proj-end" className="block text-sm font-medium text-surface-200/80 mb-2">
-                    Fecha Fin *
-                  </label>
-                  <input
-                    id="proj-end"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    required
-                    className="input-field"
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-1 space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Aparejos a Reparar</label>
+                      <input type="number" min="0" value={cantAparejosReparar} onChange={(e) => setCantAparejosReparar(parseInt(e.target.value) || 0)} className="input-field py-2" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Irreparables</label>
+                      <input type="number" min="0" value={cantAparejosIrreparables} onChange={(e) => setCantAparejosIrreparables(parseInt(e.target.value) || 0)} className="input-field py-2" />
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Códigos de Aparejos</label>
+                    <textarea value={codigosAparejos} onChange={(e) => setCodigosAparejos(e.target.value)} className="input-field py-2 h-[104px] text-xs resize-none" placeholder="Ingresa los códigos aquí..." />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-surface-100/5 p-4 rounded-xl border border-surface-200/5">
+                  <div className="space-y-4">
+                    <label className="block text-[9px] font-black text-accent-400/50 uppercase">Rodamientos</label>
+                    <input type="number" min="0" value={cantRodamientosCambiar} onChange={(e) => setCantRodamientosCambiar(parseInt(e.target.value) || 0)} className="input-field py-2" placeholder="Cant" />
+                    <textarea value={codigosRodamientos} onChange={(e) => setCodigosRodamientos(e.target.value)} className="input-field py-2 text-[10px] resize-none h-16" placeholder="Varios códigos ej: A1, B2..." />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="block text-[9px] font-black text-accent-400/50 uppercase">Cárcamos</label>
+                    <input type="number" min="0" value={cantCancamosCambiar} onChange={(e) => setCantCancamosCambiar(parseInt(e.target.value) || 0)} className="input-field py-2" placeholder="Cant" />
+                    <textarea value={codigosCancamos} onChange={(e) => setCodigosCancamos(e.target.value)} className="input-field py-2 text-[10px] resize-none h-16" placeholder="Varios códigos ej: C3, D4..." />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="block text-[9px] font-black text-accent-400/50 uppercase">Pines</label>
+                    <input type="number" min="0" value={cantPinesCambiar} onChange={(e) => setCantPinesCambiar(parseInt(e.target.value) || 0)} className="input-field py-2" placeholder="Cant" />
+                    <textarea value={codigosPines} onChange={(e) => setCodigosPines(e.target.value)} className="input-field py-2 text-[10px] resize-none h-16" placeholder="Varios códigos ej: E5, F6..." />
+                  </div>
                 </div>
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-danger-500/10 border border-danger-500/20 text-danger-400 text-sm">
+                <div className="p-4 mt-6 rounded-xl bg-danger-500/10 border border-danger-500/20 text-danger-400 text-sm font-medium">
                   {error}
                 </div>
               )}
+              </form>
+            </div>
+            
+            <div className="px-8 py-6 shrink-0 border-t border-surface-200/5 bg-surface-50/50 flex gap-4 mt-auto">
+              <button type="button" onClick={() => { setOpen(false); resetForm(); }} className="btn-secondary flex-1 py-3 text-sm font-bold uppercase tracking-widest rounded-xl">Cancelar</button>
+              <button type="submit" form="newProjectForm" disabled={loading} className="btn-primary flex-1 py-3 text-sm font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-2">
+                {loading ? (<><span className="spinner border-2 border-primary-900 border-t-transparent rounded-full w-4 h-4 animate-spin" /><span>Procesando...</span></>) : (<span>Generar Proyecto</span>)}
+              </button>
+            </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setOpen(false); resetForm(); }}
-                  className="btn-secondary flex-1"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary flex-1 flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <span className="spinner" />
-                      <span>Creando...</span>
-                    </>
-                  ) : (
-                    <span>Crear Proyecto</span>
-                  )}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

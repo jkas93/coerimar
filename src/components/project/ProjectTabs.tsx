@@ -6,6 +6,7 @@ import { GanttView } from '@/components/gantt/GanttView';
 import { SCurveChart } from '@/components/charts/SCurveChart';
 import { AlertBanner } from '@/components/alerts/AlertBanner';
 import { DailyPulseView } from '@/components/project/DailyPulseView';
+import { MaintenanceDetails } from '@/components/project/MaintenanceDetails';
 
 interface Props {
   project: Project;
@@ -17,24 +18,21 @@ interface Props {
 
 const tabs = [
   { id: 'gantt', label: 'Gantt', icon: 'M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12' },
+  { id: 'mantenimiento', label: 'Mantenimiento', icon: 'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76-1.61-1.6a1 1 0 00-1.4 0h-.01z' },
   { id: 'scurve', label: 'Curva S', icon: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z' },
   { id: 'progress', label: 'Pulso Diario', icon: 'M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z' },
   { id: 'alerts', label: 'Alertas', icon: 'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0' },
 ];
 
 export function ProjectTabs({ project, partidas, dailyProgress, alerts, milestones }: Props) {
-  const [activeTab, setActiveTab] = useState('gantt');
+  const [activeTab, setActiveTab] = useState('mantenimiento');
 
-  // Count unread alerts
   const unreadAlerts = alerts.filter((a) => !a.is_read).length;
-
-  // Count active restrictions for today
   const todayStr = new Date().toISOString().split('T')[0];
   const activeRestrictions = dailyProgress.filter((dp) => dp.date === todayStr && dp.has_restriction).length;
 
   return (
     <div>
-      {/* Tab bar */}
       <div className="flex items-center gap-1 mb-4 p-1 rounded-xl bg-surface-900/50 border border-accent-400/10 w-full overflow-x-auto scrollbar-hide">
         {tabs.map((tab) => (
           <button
@@ -64,11 +62,17 @@ export function ProjectTabs({ project, partidas, dailyProgress, alerts, mileston
         ))}
       </div>
 
-      {/* Tab Content */}
       <div className="min-h-[500px]">
         {activeTab === 'gantt' && (
           <GanttView
             projectId={project.id}
+            partidas={partidas}
+            dailyProgress={dailyProgress}
+          />
+        )}
+        {activeTab === 'mantenimiento' && (
+          <MaintenanceDetails
+            project={project}
             partidas={partidas}
             dailyProgress={dailyProgress}
           />

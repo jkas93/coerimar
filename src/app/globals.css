@@ -1,35 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@700;800;900&family=Source+Sans+Pro:wght@400;600;700&display=swap');
 @import "tailwindcss";
 
 /* =============================================================
-   CRONOGRAMA — Golden Tower Construction Brand System
-   Dark-first, glassmorphism, premium gold & navy aesthetics
-   Brand: goldentower.com.pe
-   ============================================================= */
+    COERIMAR — Gestión de Mantenimiento
+    Official Brand Identity: Navy, Royal Blue, Accent Cyan
+    ============================================================= */
 
 @theme {
-  /* === Golden Tower Brand Palette ===
-     Primary: Navy Deep Blue (fondos, headers)
-     Accent/Golden: Oro corporativo (CTAs, highlights)
-     Surface: Dark navy tones for cards/backgrounds
+  /* === COERIMAR Brand Palette ===
+     Primary: Navy & Ocean Blue
+     Accent: Corporate Cyan
   */
 
-  /* Primary — Deep Navy Blue */
-  --color-primary-50: #e6ecf5;
-  --color-primary-100: #b8c8e2;
-  --color-primary-200: #8aa4cf;
-  --color-primary-300: #5c80bc;
-  --color-primary-400: #3366a8;
-  --color-primary-500: #1a4d8f;
-  --color-primary-600: #0e3366;
-  --color-primary-700: #0a1f40;
-  --color-primary-800: #000B1C;
-  --color-primary-900: #000510;
+  /* Primary — Deep Navy to Royal Blue */
+  --color-primary-50: #e6f0fa;
+  --color-primary-100: #cce1f5;
+  --color-primary-200: #99c2eb;
+  --color-primary-300: #66a3e0;
+  --color-primary-400: #3385d6;
+  --color-primary-500: #0059B2; /* Brand Blue */
+  --color-primary-600: #004d9e;
+  --color-primary-700: #003680;
+  --color-primary-800: #001f66;
+  --color-primary-900: #000066; /* Deep Navy */
 
-  /* Accent — Golden / Oro corporativo */
-  --color-accent-300: #fad956;
-  --color-accent-400: #F7C20E;
-  --color-accent-500: #daa90c;
-  --color-accent-600: #b8900a;
+  /* Accent — Corporate Cyan */
+  --color-accent-300: #33bdf3;
+  --color-accent-400: #00ADEF; /* Official Cyan */
+  --color-accent-500: #009bd7;
+  --color-accent-600: #0081bf;
 
   /* Danger */
   --color-danger-400: #f87171;
@@ -59,8 +58,10 @@
 }
 
 :root {
-  --font-sans: 'Montserrat', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Source Sans Pro', system-ui, -apple-system, sans-serif;
+  --font-headings: 'Raleway', system-ui, -apple-system, sans-serif;
 }
+
 
 html {
   font-family: var(--font-sans);
@@ -85,18 +86,19 @@ body {
 }
 
 .glass-card:hover {
-  border-color: rgba(247, 194, 14, 0.30);
-  box-shadow: 0 8px 25px rgba(247, 194, 14, 0.08);
+  border-color: rgba(0, 173, 239, 0.30);
+  box-shadow: 0 8px 25px rgba(0, 173, 239, 0.08);
 }
 
 /* =============================================================
-   Button styles — Golden Tower branded
+   Button styles — COERIMAR branded
    ============================================================= */
 
-/* Primary Button — Golden CTA */
+/* Primary Button — Cyan CTA */
 .btn-primary {
-  background: linear-gradient(135deg, #F7C20E, #daa90c);
-  color: #000B1C;
+  background: linear-gradient(135deg, #00ADEF, #009bd7);
+  color: #ffffff;
+  font-family: var(--font-headings);
   font-weight: 700;
   padding: 0.625rem 1.5rem;
   border-radius: 0.75rem;
@@ -104,13 +106,13 @@ body {
   border: none;
   cursor: pointer;
   font-size: 0.875rem;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.05em;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #fad956, #F7C20E);
+  background: linear-gradient(135deg, #33bdf3, #00ADEF);
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(247, 194, 14, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 173, 239, 0.35);
 }
 
 .btn-primary:active {
@@ -126,20 +128,22 @@ body {
 /* Secondary Button — Navy outline */
 .btn-secondary {
   background: #ffffff;
-  color: var(--color-primary-800);
-  font-weight: 500;
+  color: var(--color-primary-900);
+  font-family: var(--font-headings);
+  font-weight: 700;
   padding: 0.625rem 1.5rem;
   border-radius: 0.75rem;
   transition: all 0.2s ease;
   border: 1px solid var(--color-surface-600);
   cursor: pointer;
   font-size: 0.875rem;
+  letter-spacing: 0.05em;
 }
 
 .btn-secondary:hover {
   background: var(--color-surface-800);
-  border-color: rgba(247, 194, 14, 0.60);
-  color: var(--color-primary-800);
+  border-color: rgba(0, 173, 239, 0.60);
+  color: var(--color-primary-500);
 }
 
 /* Danger Button */
@@ -186,10 +190,10 @@ body {
 }
 
 /* =============================================================
-   Gradient text — Golden Tower branded
+   Gradient text — COERIMAR branded
    ============================================================= */
 .gradient-text {
-  background: linear-gradient(135deg, #F7C20E, #fad956);
+  background: linear-gradient(135deg, #00ADEF, #0059B2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -209,7 +213,7 @@ body {
 }
 
 /* =============================================================
-   Scrollbar — Golden Tower style
+   Scrollbar — COERIMAR style
    ============================================================= */
 ::-webkit-scrollbar {
   width: 6px;
@@ -221,12 +225,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(247, 194, 14, 0.25);
+  background: rgba(0, 173, 239, 0.25);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(247, 194, 14, 0.45);
+  background: rgba(0, 173, 239, 0.55);
 }
 
 /* =============================================================
@@ -235,8 +239,8 @@ body {
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(247, 194, 14, 0.2);
-  border-top-color: #F7C20E;
+  border: 2px solid rgba(0, 173, 239, 0.2);
+  border-top-color: #00ADEF;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -305,10 +309,10 @@ body {
 }
 
 .gantt_task_line:not(.is-partida-bar):not(.is-item-bar) {
-  background: linear-gradient(135deg, #F7C20E, #daa90c) !important;
+  background: linear-gradient(135deg, #00ADEF, #009bd7) !important;
   border: none !important;
   border-radius: 4px !important;
-  box-shadow: 0 2px 8px rgba(247, 194, 14, 0.25) !important;
+  box-shadow: 0 2px 8px rgba(0, 173, 239, 0.25) !important;
 }
 
 .gantt_task_line.is-partida-bar {

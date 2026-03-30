@@ -92,7 +92,7 @@ export default function PrintPage({ params }: { params: Promise<{ id: string }> 
          </div>
 
          <div className="mt-20 pt-8 border-t border-surface-200/30 text-center text-xs text-surface-400 font-mono">
-            Reporte generado automáticamente por Cronograma Golden Tower Construction.
+            Reporte generado automáticamente por Sistema COERIMAR.
          </div>
 
       </div>

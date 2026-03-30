@@ -25,7 +25,7 @@ export function ImportExcelButton({ projectId }: Props) {
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
-    XLSX.writeFile(wb, "plantilla_cronograma.xlsx");
+    XLSX.writeFile(wb, "plantilla_COERIMAR.xlsx");
   };
 
   const processFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

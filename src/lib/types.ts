@@ -1,5 +1,5 @@
 // =============================================================
-// TypeScript type definitions for the Cronograma database
+// TypeScript type definitions for the COERIMAR database
 // =============================================================
 
 export interface Profile {
@@ -19,6 +19,20 @@ export interface Project {
   share_token: string;
   created_at: string;
   updated_at: string;
+  // Maintenance fields
+  cliente?: string;
+  embarcacion?: string;
+  orden_compra?: string;
+  fecha_ingreso?: string;
+  cant_aparejos_reparar?: number;
+  cant_aparejos_irreparables?: number;
+  codigos_aparejos?: string;
+  cant_rodamientos_cambiar?: number;
+  codigos_rodamientos?: string;
+  cant_cancamos_cambiar?: number;
+  codigos_cancamos?: string;
+  cant_pines_cambiar?: number;
+  codigos_pines?: string;
 }
 
 export interface ProjectMember {

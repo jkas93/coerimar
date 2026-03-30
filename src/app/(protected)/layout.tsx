@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Protected layout — wraps all authenticated routes.
- * Golden Tower Construction brand sidebar with navy + gold theme.
+ * COERIMAR branding with maintenance focus.
  */
 export default async function ProtectedLayout({
   children,

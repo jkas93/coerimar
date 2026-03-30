@@ -48,7 +48,7 @@ export default function LoginPage() {
           </Link>
           <h1 className="text-2xl font-bold text-surface-100">Iniciar Sesión</h1>
           <p className="text-sm text-surface-200/60 mt-2">
-            Accede a tu cuenta de Cronograma
+            Accede a tu cuenta de COERIMAR
           </p>
         </div>
 

@@ -216,9 +216,7 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
                 ${!readonly ? `
                 <div class="gantt-actions-container" style="display:flex;gap:12px;align-items:center;opacity:0;transition:opacity 0.2s;">
                    <div class="action-btn hover:text-accent-400" data-action="pulse" style="cursor:pointer;" title="Ver Avance">${pulseIcon}</div>
-                   <div class="action-btn hover:text-primary-400" data-action="add" style="cursor:pointer;" title="Añadir sub-tarea">${addIcon}</div>
                    <div class="action-btn hover:text-primary-400" data-action="edit" style="cursor:pointer;" title="Editar tarea">${editIcon}</div>
-                   <div class="action-btn hover:text-red-500" data-action="delete" style="cursor:pointer;" title="Eliminar">${trashIcon}</div>
                 </div>
                 ` : ''}
               </div>
@@ -273,7 +271,7 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
               end_date: activity.end_date ? format(addDays(parseISO(activity.end_date), 1), 'yyyy-MM-dd') : null,
               weight: activity.weight,
               progress: Math.min(totalProgress / 100, 1),
-              color: '#F7C20E', // Golden Tower gold
+              color: '#F7C20E', // COERIMAR gold
               progressColor: '#daa90c',
               db_type: 'activity',
               db_id: activity.id,
@@ -297,73 +295,17 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
         const btn = target.closest('.action-btn');
         if (btn) {
           const action = btn.getAttribute('data-action');
-          if (action === 'add') {
-            gantt.createTask({ text: "Nueva Tarea", duration: 1 }, id);
-            return false;
-          } else if (action === 'edit' || action === 'pulse') {
+          if (action === 'edit' || action === 'pulse') {
             gantt.showLightbox(id);
-            return false;
-          } else if (action === 'delete') {
-            // Let dhtmlx nativelly call confirm and trigger onBeforeTaskDelete
-            gantt.confirm({
-              text: "¿Eliminar permanentemente de la base de datos?",
-              ok: "Sí",
-              cancel: "No",
-              callback: function (result: boolean) {
-                if (result) gantt.deleteTask(id);
-              }
-            });
             return false;
           }
         }
         return true;
       });
 
-      // Configure MS Project style auto-adding and sync
-      gantt.attachEvent("onAfterTaskAdd", async (id: string, task: any) => {
-        // Determine what level we are at
-        const parentTask = task.parent && gantt.isTaskExists(task.parent) ? gantt.getTask(task.parent) : null;
-
-        if (!parentTask) {
-          // It's a root task -> Partida
-          task.db_type = 'partida';
-          task.color = '#0e3366';
-          const { data } = await supabase.from('partidas').insert({ project_id: projectId, name: task.text || 'Nueva Partida', sort_order: 0 }).select().single();
-          if (data) {
-            task.db_id = data.id;
-            gantt.changeTaskId(id, `p_${data.id}`);
-          }
-        } else if (parentTask.db_type === 'partida') {
-          // Parent is partida -> Item
-          task.db_type = 'item';
-          task.color = '#1a4d8f';
-          const { data } = await supabase.from('items').insert({ partida_id: parentTask.db_id, name: task.text || 'Nuevo Ítem', sort_order: 0 }).select().single();
-          if (data) {
-            task.db_id = data.id;
-            gantt.changeTaskId(id, `i_${data.id}`);
-          }
-        } else {
-          // Parent is item -> Activity
-          task.db_type = 'activity';
-          task.color = '#F7C20E';
-          const sd = task.start_date || new Date();
-          const edRaw = task.end_date || new Date(); // DHTMLX sends an exclusive end date
-
-          // Subtract 1 day so the DB stores the actual working inclusive date
-          const edInclusive = subDays(edRaw, 1);
-
-          const { data } = await supabase.from('activities').insert({
-            item_id: parentTask.db_id,
-            name: task.text || 'Nueva Actividad',
-            start_date: format(sd, 'yyyy-MM-dd'),
-            end_date: format(edInclusive, 'yyyy-MM-dd'),
-            weight: parseFloat(task.weight) || 1
-          }).select().single();
-          if (data) {
-            task.db_id = data.id;
-            gantt.changeTaskId(id, `a_${data.id}`);
-          }
-        }
+      // Disable manual task adding via API
+      gantt.attachEvent("onBeforeTaskAdd", () => {
+        return false;
       });
 
       gantt.attachEvent("onAfterTaskUpdate", async (id: string, task: any) => {
@@ -389,11 +331,8 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
         }
       });
 
-      gantt.attachEvent("onAfterTaskDelete", async (id: string, task: any) => {
-        if (!task.db_id) return;
-        if (task.db_type === 'partida') await supabase.from('partidas').delete().eq('id', task.db_id);
-        if (task.db_type === 'item') await supabase.from('items').delete().eq('id', task.db_id);
-        if (task.db_type === 'activity') await supabase.from('activities').delete().eq('id', task.db_id);
+      gantt.attachEvent("onBeforeTaskDelete", () => {
+        return false;
       });
     };
 
@@ -463,26 +402,6 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
             </button>
           )}
 
-          {/* Resetear */}
-          {!readonly && (
-            <button
-              onClick={async () => {
-                if (window.confirm("¿Seguro que deseas ELIMINAR TODAS las partidas de este diagrama? Esta acción borrará el diagrama completo y no se puede deshacer.")) {
-                  try {
-                    await supabase.from('partidas').delete().eq('project_id', projectId);
-                    router.refresh();
-                  } catch (e) { }
-                }
-              }}
-              className="p-1.5 md:p-2 border border-danger-500/20 text-danger-500 bg-danger-500/5 hover:bg-danger-500 hover:text-white rounded-lg transition-all flex-shrink-0 shadow-sm"
-              title="Resetear todo el diagrama"
-            >
-              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-            </button>
-          )}
-
           {/* Pantalla Completa */}
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
@@ -503,8 +422,6 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
               onUpdate={() => router.refresh()}
             />
           )}
-
-          {!readonly && <ImportExcelButton projectId={projectId} />}
         </div>
       </div>
 

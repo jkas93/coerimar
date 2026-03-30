@@ -28,7 +28,7 @@ export function ShareContentTabs({ project, partidas, dailyProgress, milestones 
                 : 'text-surface-300 hover:text-surface-100'
             }`}
           >
-            Cronograma Gantt
+            COERIMAR Gantt
             {activeTab === 'gantt' && (
               <div className="absolute bottom-[-1px] left-0 w-full h-0.5 bg-accent-500 rounded-t-full shadow-[0_-2px_8px_rgba(247,194,14,0.5)]" />
             )}
