@@ -15,7 +15,6 @@ export function NewProjectButton() {
   const [ordenCompra, setOrdenCompra] = useState('');
   const [fechaIngreso, setFechaIngreso] = useState('');
   const [cantAparejosReparar, setCantAparejosReparar] = useState(0);
-  const [cantAparejosIrreparables, setCantAparejosIrreparables] = useState(0);
   const [codigosAparejos, setCodigosAparejos] = useState('');
   const [cantRodamientosCambiar, setCantRodamientosCambiar] = useState(0);
   const [codigosRodamientos, setCodigosRodamientos] = useState('');
@@ -59,7 +58,6 @@ export function NewProjectButton() {
         orden_compra: ordenCompra,
         fecha_ingreso: fechaIngreso || null,
         cant_aparejos_reparar: cantAparejosReparar,
-        cant_aparejos_irreparables: cantAparejosIrreparables,
         codigos_aparejos: codigosAparejos,
         cant_rodamientos_cambiar: cantRodamientosCambiar,
         codigos_rodamientos: codigosRodamientos,
@@ -143,7 +141,6 @@ export function NewProjectButton() {
     setOrdenCompra('');
     setFechaIngreso('');
     setCantAparejosReparar(0);
-    setCantAparejosIrreparables(0);
     setCodigosAparejos('');
     setCantRodamientosCambiar(0);
     setCodigosRodamientos('');
@@ -207,38 +204,133 @@ export function NewProjectButton() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-1 space-y-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Aparejos a Reparar</label>
-                      <input type="number" min="0" value={cantAparejosReparar} onChange={(e) => setCantAparejosReparar(parseInt(e.target.value) || 0)} className="input-field py-2" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Irreparables</label>
-                      <input type="number" min="0" value={cantAparejosIrreparables} onChange={(e) => setCantAparejosIrreparables(parseInt(e.target.value) || 0)} className="input-field py-2" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-surface-100/5 p-6 rounded-2xl border border-surface-200/5">
+                  {/* Category: Aparejos */}
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Aparejos a Reparar</label>
+                    <input type="number" min="0" value={cantAparejosReparar} onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      setCantAparejosReparar(val);
+                    }} className="input-field py-1.5" placeholder="Cant" />
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                      {Array.from({ length: cantAparejosReparar }).map((_, i) => {
+                        const codesArray = codigosAparejos ? codigosAparejos.split(',') : [];
+                        return (
+                          <input
+                            key={i}
+                            type="text"
+                            placeholder={`A-${i + 1}`}
+                            value={codesArray[i] || ''}
+                            onChange={(e) => {
+                              const newCodes = [...codesArray];
+                              while (newCodes.length < cantAparejosReparar) newCodes.push('');
+                              newCodes[i] = e.target.value;
+                              setCodigosAparejos(newCodes.slice(0, cantAparejosReparar).join(','));
+                            }}
+                            className="input-field py-1 text-[9px]"
+                          />
+                        );
+                      })}
+                      {cantAparejosReparar === 0 && (
+                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
+                      )}
                     </div>
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-bold text-surface-200/40 mb-1 uppercase">Códigos de Aparejos</label>
-                    <textarea value={codigosAparejos} onChange={(e) => setCodigosAparejos(e.target.value)} className="input-field py-2 h-[104px] text-xs resize-none" placeholder="Ingresa los códigos aquí..." />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-surface-100/5 p-4 rounded-xl border border-surface-200/5">
-                  <div className="space-y-4">
-                    <label className="block text-[9px] font-black text-accent-400/50 uppercase">Rodamientos</label>
-                    <input type="number" min="0" value={cantRodamientosCambiar} onChange={(e) => setCantRodamientosCambiar(parseInt(e.target.value) || 0)} className="input-field py-2" placeholder="Cant" />
-                    <textarea value={codigosRodamientos} onChange={(e) => setCodigosRodamientos(e.target.value)} className="input-field py-2 text-[10px] resize-none h-16" placeholder="Varios códigos ej: A1, B2..." />
+                  {/* Category: Rodamientos */}
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Rodamientos</label>
+                    <input type="number" min="0" value={cantRodamientosCambiar} onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      setCantRodamientosCambiar(val);
+                    }} className="input-field py-1.5" placeholder="Cant" />
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                      {Array.from({ length: cantRodamientosCambiar }).map((_, i) => {
+                        const codesArray = codigosRodamientos ? codigosRodamientos.split(',') : [];
+                        return (
+                          <input
+                            key={i}
+                            type="text"
+                            placeholder={`R-${i + 1}`}
+                            value={codesArray[i] || ''}
+                            onChange={(e) => {
+                              const newCodes = [...codesArray];
+                              while (newCodes.length < cantRodamientosCambiar) newCodes.push('');
+                              newCodes[i] = e.target.value;
+                              setCodigosRodamientos(newCodes.slice(0, cantRodamientosCambiar).join(','));
+                            }}
+                            className="input-field py-1 text-[9px]"
+                          />
+                        );
+                      })}
+                      {cantRodamientosCambiar === 0 && (
+                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-4">
-                    <label className="block text-[9px] font-black text-accent-400/50 uppercase">Cárcamos</label>
-                    <input type="number" min="0" value={cantCancamosCambiar} onChange={(e) => setCantCancamosCambiar(parseInt(e.target.value) || 0)} className="input-field py-2" placeholder="Cant" />
-                    <textarea value={codigosCancamos} onChange={(e) => setCodigosCancamos(e.target.value)} className="input-field py-2 text-[10px] resize-none h-16" placeholder="Varios códigos ej: C3, D4..." />
+
+                  {/* Category: Cárcamos */}
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Cárcamos</label>
+                    <input type="number" min="0" value={cantCancamosCambiar} onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      setCantCancamosCambiar(val);
+                    }} className="input-field py-1.5" placeholder="Cant" />
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                      {Array.from({ length: cantCancamosCambiar }).map((_, i) => {
+                        const codesArray = codigosCancamos ? codigosCancamos.split(',') : [];
+                        return (
+                          <input
+                            key={i}
+                            type="text"
+                            placeholder={`C-${i + 1}`}
+                            value={codesArray[i] || ''}
+                            onChange={(e) => {
+                              const newCodes = [...codesArray];
+                              while (newCodes.length < cantCancamosCambiar) newCodes.push('');
+                              newCodes[i] = e.target.value;
+                              setCodigosCancamos(newCodes.slice(0, cantCancamosCambiar).join(','));
+                            }}
+                            className="input-field py-1 text-[9px]"
+                          />
+                        );
+                      })}
+                      {cantCancamosCambiar === 0 && (
+                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-4">
-                    <label className="block text-[9px] font-black text-accent-400/50 uppercase">Pines</label>
-                    <input type="number" min="0" value={cantPinesCambiar} onChange={(e) => setCantPinesCambiar(parseInt(e.target.value) || 0)} className="input-field py-2" placeholder="Cant" />
-                    <textarea value={codigosPines} onChange={(e) => setCodigosPines(e.target.value)} className="input-field py-2 text-[10px] resize-none h-16" placeholder="Varios códigos ej: E5, F6..." />
+
+                  {/* Category: Pines */}
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Pines</label>
+                    <input type="number" min="0" value={cantPinesCambiar} onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      setCantPinesCambiar(val);
+                    }} className="input-field py-1.5" placeholder="Cant" />
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                      {Array.from({ length: cantPinesCambiar }).map((_, i) => {
+                        const codesArray = codigosPines ? codigosPines.split(',') : [];
+                        return (
+                          <input
+                            key={i}
+                            type="text"
+                            placeholder={`P-${i + 1}`}
+                            value={codesArray[i] || ''}
+                            onChange={(e) => {
+                              const newCodes = [...codesArray];
+                              while (newCodes.length < cantPinesCambiar) newCodes.push('');
+                              newCodes[i] = e.target.value;
+                              setCodigosPines(newCodes.slice(0, cantPinesCambiar).join(','));
+                            }}
+                            className="input-field py-1 text-[9px]"
+                          />
+                        );
+                      })}
+                      {cantPinesCambiar === 0 && (
+                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

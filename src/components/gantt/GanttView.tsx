@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { ImportExcelButton } from './ImportExcelButton';
-import { addDays, subDays, parseISO, format, isSameDay } from 'date-fns';
+import { addDays, subDays, parseISO, format } from 'date-fns';
 import { MilestoneModal } from './MilestoneModal';
+
+import { Partida, DailyProgress } from '@/lib/types';
 
 interface Props {
   projectId: string;
@@ -25,16 +26,13 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
   const supabase = createClient();
   const [zoomLevel, setZoomLevel] = useState('day');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [newActivityData, setNewActivityData] = useState({
-    name: '',
-    start_date: '',
-    end_date: '',
-    weight: '1',
-  });
-  const [selectedPartida, setSelectedPartida] = useState('');
-  const [selectedItem, setSelectedItem] = useState('');
-  const [addingItem, setAddingItem] = useState(false);
-  const [addingActivity, setAddingActivity] = useState(false);
+  const [editingTask, setEditingTask] = useState<{
+    id: string;
+    ganttId: string;
+    name: string;
+    start_date: string;
+    end_date: string;
+  } | null>(null);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [isOwner, setIsOwner] = useState(false);
 
@@ -202,10 +200,7 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
             const weightBadge = task.weight ? `<span style="margin-left:6px;padding:1px 5px;font-size:9px;background:rgba(247,194,14,0.15);color:#F7C20E;border-radius:4px;border:1px solid rgba(247,194,14,0.2);">Peso: ${task.weight}</span>` : '';
 
             // Iconos CRUD en SVG
-            const addIcon = `<svg style="width:14px;height:14px;color:#94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>`;
             const editIcon = `<div style="background:#1e293b;border-radius:50%;padding:4px;"><svg style="width:12px;height:12px;color:#f8fafc;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg></div>`;
-            const trashIcon = `<svg style="width:14px;height:14px;color:#94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`;
-            const pulseIcon = `<svg style="width:16px;height:16px;color:#94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>`;
 
             return `
               <div class="gantt-custom-cell" style="display:flex;align-items:center;justify-content:space-between;line-height:1.3;width:100%;height:100%;padding-right:12px;">
@@ -213,10 +208,9 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
                   <span style="${titleColor} overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" title="${task.text}">${task.text} ${weightBadge}</span>
                   <span style="font-size:10px;color:rgba(100,116,139,0.7);margin-top:2px;">${prog}% | ${dur}d</span>
                 </div>
-                ${!readonly ? `
+                ${!readonly && task.db_type === 'activity' ? `
                 <div class="gantt-actions-container" style="display:flex;gap:12px;align-items:center;opacity:0;transition:opacity 0.2s;">
-                   <div class="action-btn hover:text-accent-400" data-action="pulse" style="cursor:pointer;" title="Ver Avance">${pulseIcon}</div>
-                   <div class="action-btn hover:text-primary-400" data-action="edit" style="cursor:pointer;" title="Editar tarea">${editIcon}</div>
+                   <div class="action-btn hover:text-primary-400" data-action="edit" style="cursor:pointer;" title="Editar rango de fechas">${editIcon}</div>
                 </div>
                 ` : ''}
               </div>
@@ -295,8 +289,15 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
         const btn = target.closest('.action-btn');
         if (btn) {
           const action = btn.getAttribute('data-action');
-          if (action === 'edit' || action === 'pulse') {
-            gantt.showLightbox(id);
+          if (action === 'edit') {
+            const task = gantt.getTask(id);
+            setEditingTask({
+              id: task.db_id,
+              ganttId: id,
+              name: task.text,
+              start_date: format(task.start_date, 'yyyy-MM-dd'),
+              end_date: format(subDays(task.end_date, 1), 'yyyy-MM-dd')
+            });
             return false;
           }
         }
@@ -600,6 +601,65 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
           <span className="text-accent-400">Completado</span>
         </div>
       </div>
+
+      {editingTask && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 overflow-hidden">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-all" onClick={() => setEditingTask(null)} />
+          <div className="relative glass-card w-full max-w-sm fade-in shadow-2xl rounded-2xl overflow-hidden bg-white">
+            <div className="px-6 py-4 border-b border-surface-200/5 bg-surface-50/50 flex items-center justify-between">
+              <div className="flex flex-col">
+                <h3 className="text-sm font-black text-surface-200 uppercase tracking-wide">Ajustar Período</h3>
+                <p className="text-[10px] text-accent-500 font-bold uppercase truncate max-w-[200px]">{editingTask.name}</p>
+              </div>
+              <button onClick={() => setEditingTask(null)} className="text-surface-200/50 hover:text-danger-500 transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-surface-200/40 mb-1.5 uppercase tracking-widest">Fecha Inicio</label>
+                  <input 
+                    type="date" 
+                    value={editingTask.start_date}
+                    onChange={(e) => setEditingTask({ ...editingTask, start_date: e.target.value })}
+                    className="w-full text-xs font-bold bg-surface-100/10 px-3 py-2 rounded-lg border border-surface-200/20 focus:border-accent-400 outline-none transition-all text-surface-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-surface-200/40 mb-1.5 uppercase tracking-widest">Fecha Fin</label>
+                  <input 
+                    type="date" 
+                    value={editingTask.end_date}
+                    onChange={(e) => setEditingTask({ ...editingTask, end_date: e.target.value })}
+                    className="w-full text-xs font-bold bg-surface-100/10 px-3 py-2 rounded-lg border border-surface-200/20 focus:border-accent-400 outline-none transition-all text-surface-200"
+                  />
+                </div>
+              </div>
+              
+              <button 
+                onClick={async () => {
+                  const sd = parseISO(editingTask.start_date);
+                  const ed = addDays(parseISO(editingTask.end_date), 1);
+                  
+                  import('dhtmlx-gantt').then(async (mod: any) => {
+                    const gantt = mod.gantt || mod.default || mod;
+                    const task = gantt.getTask(editingTask.ganttId);
+                    task.start_date = sd;
+                    task.end_date = ed;
+                    gantt.updateTask(task.id);
+                    setEditingTask(null);
+                  });
+                }}
+                className="w-full bg-accent-400 text-primary-900 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-accent-500 transition-all shadow-lg shadow-accent-400/20"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

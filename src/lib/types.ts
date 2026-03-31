@@ -25,7 +25,6 @@ export interface Project {
   orden_compra?: string;
   fecha_ingreso?: string;
   cant_aparejos_reparar?: number;
-  cant_aparejos_irreparables?: number;
   codigos_aparejos?: string;
   cant_rodamientos_cambiar?: number;
   codigos_rodamientos?: string;
@@ -80,6 +79,8 @@ export interface DailyProgress {
   created_at: string;
   has_restriction?: boolean;
   restriction_reason?: string | null;
+  photo_urls?: string[] | null;
+  completed_codes?: string | null;
 }
 
 export interface Alert {

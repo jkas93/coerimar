@@ -4,17 +4,35 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { triggerProjectAlerts } from '@/app/actions/alerts';
-import { compressImage } from '@/lib/utils/imageCompression';
+
+import { Project, DailyProgress, PartidaWithItems, Activity, Item, Partida } from '@/lib/types';
+
+interface DecoratedActivity extends Activity {
+  totalProgress: number;
+  existingTodayPercent: number | null;
+}
+
+interface DecoratedItem extends Item {
+  activities: DecoratedActivity[];
+}
+
+interface DecoratedPartida extends Partida {
+  items: DecoratedItem[];
+}
 
 interface Props {
   projectId: string;
-  partidas: any[];
-  dailyProgress?: any[];
+  project: Project;
+  partidas: PartidaWithItems[];
+  dailyProgress?: DailyProgress[];
 }
 
-export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Props) {
+export function DailyPulseView({ projectId, project, partidas, dailyProgress = [] }: Props) {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [editedValues, setEditedValues] = useState<Record<string, { percent: string, notes: string, files: File[], hasRestriction: boolean, restrictionReason: string }>>({});
+  const [editedValues, setEditedValues] = useState<Record<string, { 
+    percent: string, 
+    completedCodes: string[] 
+  }>>({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,13 +50,13 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
 
   // Flatten and filter activities active on the selected date
   const activeActivitiesByPartida = useMemo(() => {
-    const active: any[] = [];
-    partidas.forEach((p: any) => {
-      const itemsWithActivities: any[] = [];
-      (p.items || []).forEach((i: any) => {
-        const validActivities = (i.activities || []).filter((a: any) => {
+    const active: DecoratedPartida[] = [];
+    partidas.forEach((p: PartidaWithItems) => {
+      const itemsWithActivities: DecoratedItem[] = [];
+      (p.items || []).forEach((i) => {
+        const validActivities = (i.activities || []).filter((a) => {
           return a.start_date <= selectedDate && a.end_date >= selectedDate;
-        }).map((a: any) => {
+        }).map((a): DecoratedActivity => {
           const taskProgressLogs = dailyProgress.filter(dp => dp.activity_id === a.id);
           const totalProgress = taskProgressLogs.reduce((sum, dp) => sum + Number(dp.progress_percent), 0);
           const existingToday = taskProgressLogs.find(dp => dp.date === selectedDate);
@@ -47,10 +65,6 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
             ...a,
             totalProgress,
             existingTodayPercent: existingToday ? existingToday.progress_percent : null,
-            existingTodayNotes: existingToday ? existingToday.notes : '',
-            existingTodayPhotos: existingToday ? existingToday.photo_urls : [],
-            existingTodayRestriction: existingToday ? existingToday.has_restriction : false,
-            existingTodayRestrictionReason: existingToday ? existingToday.restriction_reason : ''
           };
         });
 
@@ -68,15 +82,15 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
 
   const flatActiveActivitiesCount = useMemo(() => {
     return activeActivitiesByPartida.reduce((sum, p) => 
-      sum + p.items.reduce((itemSum: number, i: any) => itemSum + i.activities.length, 0), 0
+      sum + p.items.reduce((itemSum: number, i: DecoratedItem) => itemSum + i.activities.length, 0), 0
     );
   }, [activeActivitiesByPartida]);
 
   const registeredTodayCount = useMemo(() => {
     let count = 0;
-    activeActivitiesByPartida.forEach((p) => {
-      p.items.forEach((i: any) => {
-        i.activities.forEach((a: any) => {
+    activeActivitiesByPartida.forEach((p: DecoratedPartida) => {
+      p.items.forEach((i: DecoratedItem) => {
+        i.activities.forEach((a: DecoratedActivity) => {
           if (editedValues[a.id]?.percent || a.existingTodayPercent !== null) {
             count++;
           }
@@ -86,20 +100,7 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
     return count;
   }, [activeActivitiesByPartida, editedValues]);
 
-  const activeRestrictionsCount = useMemo(() => {
-    let count = 0;
-    activeActivitiesByPartida.forEach((p) => {
-      p.items.forEach((i: any) => {
-        i.activities.forEach((a: any) => {
-          const isRestricted = editedValues[a.id]?.hasRestriction !== undefined 
-            ? editedValues[a.id].hasRestriction 
-            : a.existingTodayRestriction;
-          if (isRestricted) count++;
-        });
-      });
-    });
-    return count;
-  }, [activeActivitiesByPartida, editedValues]);
+
 
   const handlePercentChange = (activityId: string, value: string) => {
     setEditedValues(prev => ({
@@ -107,89 +108,32 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
       [activityId]: { 
         ...prev[activityId], 
         percent: value, 
-        notes: prev[activityId]?.notes || '', 
-        files: prev[activityId]?.files || [],
-        hasRestriction: prev[activityId]?.hasRestriction || false,
-        restrictionReason: prev[activityId]?.restrictionReason || ''
+        completedCodes: prev[activityId]?.completedCodes || []
       }
     }));
   };
 
-  const handleNotesChange = (activityId: string, value: string) => {
-    setEditedValues(prev => ({
-      ...prev,
-      [activityId]: { 
-        ...prev[activityId], 
-        percent: prev[activityId]?.percent || '', 
-        notes: value, 
-        files: prev[activityId]?.files || [],
-        hasRestriction: prev[activityId]?.hasRestriction || false,
-        restrictionReason: prev[activityId]?.restrictionReason || ''
-      }
-    }));
-  };
-
-  const handleRestrictionToggle = (activityId: string, currentVal: boolean) => {
-    setEditedValues(prev => ({
-      ...prev,
-      [activityId]: {
-        ...prev[activityId],
-        percent: prev[activityId]?.percent || '',
-        notes: prev[activityId]?.notes || '',
-        files: prev[activityId]?.files || [],
-        hasRestriction: !currentVal,
-        restrictionReason: prev[activityId]?.restrictionReason || ''
-      }
-    }));
-  };
-
-  const handleRestrictionReasonChange = (activityId: string, value: string) => {
-    setEditedValues(prev => ({
-      ...prev,
-      [activityId]: {
-        ...prev[activityId],
-        percent: prev[activityId]?.percent || '',
-        notes: prev[activityId]?.notes || '',
-        files: prev[activityId]?.files || [],
-        hasRestriction: prev[activityId]?.hasRestriction || false,
-        restrictionReason: value
-      }
-    }));
-  };
-
-  const handleFileChange = (activityId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files);
-      setEditedValues(prev => {
-        const currentFiles = prev[activityId]?.files || [];
-        if (currentFiles.length + selectedFiles.length > 3) {
-          alert('Máximo 3 fotos por actividad');
-          return prev;
+  const handleCodeToggle = (activityId: string, code: string, totalCodes: number) => {
+    setEditedValues(prev => {
+      const currentCodes = prev[activityId]?.completedCodes || [];
+      const newCodes = currentCodes.includes(code)
+        ? currentCodes.filter(c => c !== code)
+        : [...currentCodes, code];
+      
+      const newPercent = totalCodes > 0 ? ((newCodes.length / totalCodes) * 100).toFixed(1) : '0';
+      
+      return {
+        ...prev,
+        [activityId]: {
+          ...prev[activityId],
+          percent: newPercent,
+          completedCodes: newCodes,
         }
-        return {
-          ...prev,
-          [activityId]: { 
-            ...prev[activityId], 
-            percent: prev[activityId]?.percent || '', 
-            notes: prev[activityId]?.notes || '', 
-            files: [...currentFiles, ...selectedFiles].slice(0, 3),
-            hasRestriction: prev[activityId]?.hasRestriction || false,
-            restrictionReason: prev[activityId]?.restrictionReason || ''
-          }
-        };
-      });
-    }
+      };
+    });
   };
 
-  const removeFile = (activityId: string, index: number) => {
-    setEditedValues(prev => ({
-      ...prev,
-      [activityId]: {
-        ...prev[activityId],
-        files: prev[activityId].files.filter((_, i) => i !== index)
-      }
-    }));
-  };
+
 
   const toggleRowExpanded = (activityId: string) => {
     setExpandedRows(prev => {
@@ -218,72 +162,40 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
       const { data: { user } } = await supabase.auth.getUser();
       const activitiesToSave = Object.keys(editedValues).filter(id => {
         const val = editedValues[id];
-        return val.percent !== '' || val.notes !== '' || val.files.length > 0 || val.hasRestriction !== undefined || val.restrictionReason !== '';
+        return val.percent !== '' || (val.completedCodes && val.completedCodes.length > 0);
       });
 
       if (activitiesToSave.length === 0) {
         throw new Error("No hay cambios para guardar.");
       }
 
+      const allActiveActivities = activeActivitiesByPartida.flatMap(p => 
+        p.items.flatMap(i => i.activities)
+      );
+
       // Validations
       for (const activityId of activitiesToSave) {
-        // Find activity in flat list
-        let activityInfo: any = null;
-        activeActivitiesByPartida.forEach((p) => {
-          p.items.forEach((i: any) => {
-            const found = i.activities.find((a: any) => a.id === activityId);
-            if (found) activityInfo = found;
-          });
-        });
+        const act = allActiveActivities.find(a => a.id === activityId);
 
-        if (activityInfo) {
+        if (act) {
           const proposedPercent = parseFloat(editedValues[activityId].percent);
-          const previousTodayPercent = activityInfo.existingTodayPercent ? Number(activityInfo.existingTodayPercent) : 0;
-          const accumulatedWithoutToday = activityInfo.totalProgress - previousTodayPercent;
+          const previousTodayPercent = act.existingTodayPercent ? Number(act.existingTodayPercent) : 0;
+          const accumulatedWithoutToday = act.totalProgress - previousTodayPercent;
 
           if (accumulatedWithoutToday + proposedPercent > 100) {
-            throw new Error(`Progreso inválido en "${activityInfo.name}". Acumulado > 100%.`);
+            throw new Error(`Progreso inválido en "${act.name}". Acumulado > 100%.`);
           }
         }
       }
 
       const promises = activitiesToSave.map(async (activityId) => {
-        const { percent, notes, files, hasRestriction, restrictionReason } = editedValues[activityId] || {};
-        const photoUrls: string[] = [];
-        
-        // Find existing activity info to keep old photos if we didn't add new ones? 
-        // For simplicity, we append new files to existing photos, but handling deletions of old photos is complex.
-        // Let's just upload new ones and append them to existing if any.
-        let activityInfo: any = null;
-        activeActivitiesByPartida.forEach((p) => {
-          p.items.forEach((i: any) => {
-            const found = i.activities.find((a: any) => a.id === activityId);
-            if (found) activityInfo = found;
-          });
-        });
-        
-        const existingPhotos = activityInfo?.existingTodayPhotos || [];
-        const finalPercent = percent !== '' && percent !== undefined ? parseFloat(percent) : (activityInfo?.existingTodayPercent || 0);
-        const finalNotes = notes !== '' && notes !== undefined ? notes : activityInfo?.existingTodayNotes || null;
-        const finalRestriction = hasRestriction !== undefined ? hasRestriction : activityInfo?.existingTodayRestriction || false;
-        const finalReason = restrictionReason !== '' && restrictionReason !== undefined ? restrictionReason : activityInfo?.existingTodayRestrictionReason || null;
+        const { percent, completedCodes } = editedValues[activityId] || {};
+        const activityInfo = allActiveActivities.find(a => a.id === activityId);
 
-        for (const file of files || []) {
-          // Motor P.U.L.S.O. - Compresión inteligente a WebP antes de subir
-          const compressedFile = await compressImage(file);
-          
-          const fileName = `${projectId}/${activityId}/${selectedDate}_${Math.random().toString(36).substring(7)}.webp`;
-          const { error: uploadError, data } = await supabase.storage
-            .from('evidence')
-            .upload(fileName, compressedFile);
-
-          if (!uploadError && data?.path) {
-            const { data: publicUrlData } = supabase.storage.from('evidence').getPublicUrl(data.path);
-            photoUrls.push(publicUrlData.publicUrl);
-          }
-        }
-
-        const finalPhotos = [...existingPhotos, ...photoUrls];
+        const finalPercent = percent !== '' && percent !== undefined 
+          ? parseFloat(percent) 
+          : (activityInfo?.existingTodayPercent || 0);
+        const finalCodes = completedCodes ? completedCodes.join(',') : null;
 
         const { error: insertError } = await supabase
           .from('daily_progress')
@@ -292,34 +204,28 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
               activity_id: activityId,
               date: selectedDate,
               progress_percent: finalPercent,
-              notes: finalNotes,
               created_by: user?.id,
-              photo_urls: finalPhotos,
-              has_restriction: finalRestriction,
-              restriction_reason: finalReason
+              completed_codes: finalCodes
             },
             { onConflict: 'activity_id,date' }
           );
 
         if (insertError) {
-          if (insertError.message.includes('photo_urls') || insertError.details?.includes('photo_urls') || insertError.message.includes('schema cache')) {
-             await supabase
-              .from('daily_progress')
-              .upsert(
-                {
-                  activity_id: activityId,
-                  date: selectedDate,
-                  progress_percent: finalPercent,
-                  notes: finalNotes,
-                  created_by: user?.id,
-                  has_restriction: finalRestriction,
-                  restriction_reason: finalReason
-                },
-                { onConflict: 'activity_id,date' }
-              );
-          } else {
-             throw insertError;
-          }
+          console.warn("Primary upsert failed, trying fallback without completed_codes:", insertError.message);
+          // Fallback without completed_codes
+          const { error: fallbackError } = await supabase
+            .from('daily_progress')
+            .upsert(
+              {
+                activity_id: activityId,
+                date: selectedDate,
+                progress_percent: finalPercent,
+                created_by: user?.id,
+              },
+              { onConflict: 'activity_id,date' }
+            );
+          
+          if (fallbackError) throw fallbackError;
         }
       });
 
@@ -333,8 +239,9 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
       setTimeout(() => setSuccess(false), 3000);
       router.refresh();
       
-    } catch (err: any) {
-      setError(err.message || 'Error al guardar los avances.');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al guardar los avances.';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -358,12 +265,6 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="bg-transparent border-none text-lg font-bold text-surface-100 outline-none text-center cursor-pointer"
               />
-              {activeRestrictionsCount > 0 && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-danger-500/20 text-danger-400 text-xs font-bold animate-pulse">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                  {activeRestrictionsCount}
-                </div>
-              )}
             </div>
           </div>
           <button onClick={() => changeDate(1)} className="p-2 hover:bg-surface-800 rounded-full transition-colors" title="Día siguiente">
@@ -428,11 +329,11 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
                   <th className="py-3 px-4 w-24 text-center">Peso</th>
                   <th className="py-3 px-4 w-32 border-l border-surface-700/30 text-center">Acumulado</th>
                   <th className="py-3 px-4 w-40 text-center bg-accent-400/5 text-accent-400/80">Hoy (%)</th>
-                  <th className="py-3 px-4 w-28 text-center text-surface-300">Detalles</th>
+                  <th className="py-3 px-4 w-28 text-center text-surface-300">Marcar</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {activeActivitiesByPartida.map((partida: any) => (
+                {activeActivitiesByPartida.map((partida: DecoratedPartida) => (
                   <React.Fragment key={partida.id}>
                     {/* Partida Header */}
                     <tr>
@@ -441,7 +342,7 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
                       </td>
                     </tr>
                     
-                    {partida.items.map((item: any) => (
+                    {partida.items.map((item: DecoratedItem) => (
                       <React.Fragment key={item.id}>
                         {/* Item line */}
                         <tr>
@@ -451,29 +352,20 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
                         </tr>
 
                         {/* Activities */}
-                        {item.activities.map((activity: any) => {
+                        {item.activities.map((activity: DecoratedActivity) => {
                           const isExpanded = expandedRows.has(activity.id);
                           const editState = editedValues[activity.id];
-                          const hasUnsavedChanges = editState?.percent !== undefined || editState?.notes !== undefined || (editState?.files && editState.files.length > 0);
-                          
+                          const hasUnsavedChanges = editState?.percent !== undefined || (editState?.completedCodes && editState.completedCodes.length > 0);
                           const displayPercent = editState?.percent !== undefined 
                             ? editState.percent 
                             : (activity.existingTodayPercent !== null ? activity.existingTodayPercent.toString() : '');
-
-                          const isRestricted = editState?.hasRestriction !== undefined 
-                            ? editState.hasRestriction 
-                            : (activity.existingTodayRestriction || false);
-                            
-                          const trClass = isRestricted 
-                            ? 'bg-danger-500/5 hover:bg-danger-500/10 border-l-4 border-l-danger-500 border-b border-surface-700/50 transition-colors'
-                            : `hover:bg-surface-800/30 transition-colors border-b border-l-4 border-l-transparent border-surface-700/50 ${hasUnsavedChanges ? 'bg-accent-400/5' : ''}`;
+                          const trClass = `hover:bg-surface-800/30 transition-colors border-b border-l-4 border-l-transparent border-surface-700/50 ${hasUnsavedChanges ? 'bg-accent-400/5' : ''}`;
 
                           return (
                             <React.Fragment key={activity.id}>
                               <tr className={trClass}>
                                 <td className="py-3 px-4 pl-6">
                                   <div className="flex items-center gap-2">
-                                    {isRestricted && <span title="Con Restricción" className="text-danger-400"><svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" /></svg></span>}
                                     <span className="text-surface-100 font-medium">{activity.name}</span>
                                     {hasUnsavedChanges && <span className="w-1.5 h-1.5 rounded-full bg-accent-400"></span>}
                                   </div>
@@ -503,89 +395,66 @@ export function DailyPulseView({ projectId, partidas, dailyProgress = [] }: Prop
                                   <button 
                                     onClick={() => toggleRowExpanded(activity.id)}
                                     className={`p-1.5 rounded-md transition-colors relative ${isExpanded ? 'bg-surface-700 text-surface-100' : 'text-surface-300 hover:bg-surface-800 hover:text-surface-200'}`}
-                                    title="Añadir notas o fotos"
+                                    title="Marcar códigos"
                                   >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                    {(activity.existingTodayNotes || activity.existingTodayPhotos.length > 0 || editState?.notes || (editState?.files && editState.files.length > 0)) && (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                                    {editState?.completedCodes && editState.completedCodes.length > 0 && (
                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-accent-400 rounded-full border border-surface-900"></span>
                                     )}
                                   </button>
                                 </td>
                               </tr>
                               
-                              {/* Expanded Row for Notes & Photos */}
+                              {/* Expanded Row for Codes */}
                               {isExpanded && (
                                 <tr className="bg-surface-800/50 border-b border-surface-700/50">
                                   <td colSpan={5} className="py-4 px-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-surface-900 p-4 rounded-xl border border-surface-700/50 shadow-inner mt-4">
-                                      
-                                      {/* Restricción */}
-                                      <div className={`col-span-1 md:col-span-2 p-4 rounded-lg border ${isRestricted ? 'bg-danger-500/10 border-danger-500/30' : 'bg-surface-800 border-surface-700'}`}>
-                                        <div className="flex items-center justify-between mb-3">
-                                          <label className="flex items-center gap-2 text-sm font-bold text-surface-100 cursor-pointer">
-                                            <input 
-                                              type="checkbox" 
-                                              checked={isRestricted}
-                                              onChange={() => handleRestrictionToggle(activity.id, isRestricted)}
-                                              className="w-4 h-4 accent-danger-500 rounded bg-surface-700 border-surface-600"
-                                            />
-                                            ¿Existe alguna restricción o inconveniente?
-                                          </label>
-                                        </div>
-                                        {isRestricted && (
-                                          <div className="pl-6 animate-fade-in">
-                                            <label className="block text-xs font-semibold text-danger-400 uppercase tracking-wider mb-2">Detalle de la Restricción</label>
-                                            <textarea
-                                              value={editState?.restrictionReason !== undefined ? editState.restrictionReason : activity.existingTodayRestrictionReason}
-                                              onChange={(e) => handleRestrictionReasonChange(activity.id, e.target.value)}
-                                              placeholder="Ej: Falta de material, clima, permisos..."
-                                              className="w-full text-sm bg-surface-900 border border-danger-500/30 rounded-lg p-3 outline-none focus:border-danger-400 text-surface-100 resize-none h-20"
-                                            />
-                                          </div>
-                                        )}
-                                      </div>
+                                    <div className="bg-surface-900 p-6 rounded-xl border border-surface-700/50 shadow-inner mt-2">
+                                        <div className="p-4 bg-surface-800 rounded-xl border border-surface-700/50">
+                                          <label className="block text-xs font-black text-accent-400 uppercase tracking-widest mb-4 text-center">Marcado de Códigos atendidos</label>
+                                          <div className="space-y-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                                            {[
+                                              { label: 'Aparejos', codes: project.codigos_aparejos },
+                                              { label: 'Rodamientos', codes: project.codigos_rodamientos },
+                                              { label: 'Cárcamos', codes: project.codigos_cancamos },
+                                              { label: 'Pines', codes: project.codigos_pines },
+                                            ].map((cat, catIdx) => {
+                                              const codeList = cat.codes ? cat.codes.split(',').filter(c => c.trim()) : [];
+                                              if (codeList.length === 0) return null;
 
-                                      {/* Notas */}
-                                      <div>
-                                        <label className="block text-xs font-semibold text-surface-200 uppercase tracking-wider mb-2">Notas del día</label>
-                                        <textarea
-                                          value={editState?.notes !== undefined ? editState.notes : activity.existingTodayNotes}
-                                          onChange={(e) => handleNotesChange(activity.id, e.target.value)}
-                                          placeholder="Añadir observaciones..."
-                                          className="w-full text-sm bg-surface-800 border border-surface-700 rounded-lg p-3 outline-none focus:border-accent-400 text-surface-100 resize-none h-24"
-                                        />
-                                      </div>
-                                      
-                                      {/* Fotos */}
-                                      <div>
-                                        <label className="block text-xs font-semibold text-surface-200 uppercase tracking-wider mb-2 flex justify-between items-center">
-                                          <span>Evidencia fotográfica</span>
-                                          <label className="text-accent-500 hover:text-accent-400 cursor-pointer text-xs font-bold bg-accent-400/10 px-2 py-1 rounded-md transition-colors">
-                                            + Subir <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFileChange(activity.id, e)} />
-                                          </label>
-                                        </label>
-                                        
-                                        <div className="flex gap-3 overflow-x-auto pb-2 min-h-[80px] p-2 bg-surface-800 rounded-lg border border-surface-700 border-dashed">
-                                           {activity.existingTodayPhotos.map((url: string, idx: number) => (
-                                              <div key={`old-${idx}`} className="relative w-16 h-16 rounded-md overflow-hidden shrink-0 border border-surface-600">
-                                                <img src={url} alt="Evidencia" className="w-full h-full object-cover" />
-                                              </div>
-                                           ))}
-                                           {editState?.files?.map((file, idx) => (
-                                              <div key={`new-${idx}`} className="relative w-16 h-16 rounded-md overflow-hidden shrink-0 border border-accent-400 group">
-                                                <img src={URL.createObjectURL(file)} alt="Nueva evidencia" className="w-full h-full object-cover opacity-80" />
-                                                <button onClick={() => removeFile(activity.id, idx)} className="absolute inset-0 m-auto w-6 h-6 bg-red-500 rounded-full text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                                </button>
-                                              </div>
-                                           ))}
-                                           {activity.existingTodayPhotos.length === 0 && (!editState?.files || editState.files.length === 0) && (
-                                              <div className="flex w-full items-center justify-center text-xs text-surface-300">
-                                                Sin fotos para este día
-                                              </div>
-                                           )}
+                                              // Calculate project total codes for percentage
+                                              const totalProjCodes = (project.codigos_aparejos?.split(',').filter(c => c.trim()).length || 0) +
+                                                                     (project.codigos_rodamientos?.split(',').filter(c => c.trim()).length || 0) +
+                                                                     (project.codigos_cancamos?.split(',').filter(c => c.trim()).length || 0) +
+                                                                     (project.codigos_pines?.split(',').filter(c => c.trim()).length || 0);
+
+                                              return (
+                                                <div key={catIdx} className="space-y-3">
+                                                  <span className="text-[10px] font-black text-surface-200/50 uppercase tracking-tighter border-b border-surface-700 pb-1 block">{cat.label}</span>
+                                                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                                    {codeList.map((code, codeIdx) => {
+                                                      const isChecked = editState?.completedCodes 
+                                                        ? editState.completedCodes.includes(code)
+                                                        : (dailyProgress.find(dp => dp.activity_id === activity.id && dp.date === selectedDate)?.completed_codes?.split(',') || []).includes(code);
+
+                                                      return (
+                                                        <label key={codeIdx} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${isChecked ? 'bg-accent-400/10 border-accent-400/30 text-accent-400 shadow-sm' : 'bg-surface-900/50 border-surface-700 hover:border-surface-600 text-surface-200'}`}>
+                                                          <input 
+                                                            type="checkbox" 
+                                                            checked={isChecked}
+                                                            onChange={() => handleCodeToggle(activity.id, code, totalProjCodes)}
+                                                            className="w-3.5 h-3.5 accent-accent-400 rounded"
+                                                          />
+                                                          <span className="text-[11px] font-bold truncate">{code}</span>
+                                                        </label>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
                                         </div>
-                                      </div>
                                     </div>
                                   </td>
                                 </tr>
