@@ -414,16 +414,18 @@ export function DailyPulseView({ projectId, project, partidas, dailyProgress = [
                                           <label className="block text-xs font-black text-accent-400 uppercase tracking-widest mb-4 text-center">Marcado de Códigos atendidos</label>
                                           <div className="space-y-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                                             {[
-                                              { label: 'Aparejos', codes: project.codigos_aparejos },
+                                              { label: 'Poleas', codes: project.codigos_poleas },
+                                              { label: 'Cascos', codes: project.codigos_cascos },
                                               { label: 'Rodamientos', codes: project.codigos_rodamientos },
-                                              { label: 'Cárcamos', codes: project.codigos_cancamos },
+                                              { label: 'Cáncamos', codes: project.codigos_cancamos },
                                               { label: 'Pines', codes: project.codigos_pines },
                                             ].map((cat, catIdx) => {
                                               const codeList = cat.codes ? cat.codes.split(',').filter(c => c.trim()) : [];
                                               if (codeList.length === 0) return null;
 
                                               // Calculate project total codes for percentage
-                                              const totalProjCodes = (project.codigos_aparejos?.split(',').filter(c => c.trim()).length || 0) +
+                                              const totalProjCodes = (project.codigos_poleas?.split(',').filter(c => c.trim()).length || 0) +
+                                                                     (project.codigos_cascos?.split(',').filter(c => c.trim()).length || 0) +
                                                                      (project.codigos_rodamientos?.split(',').filter(c => c.trim()).length || 0) +
                                                                      (project.codigos_cancamos?.split(',').filter(c => c.trim()).length || 0) +
                                                                      (project.codigos_pines?.split(',').filter(c => c.trim()).length || 0);
