@@ -20,14 +20,16 @@ export function MaintenanceDetails({ project, dailyProgress }: Props) {
     embarcacion: project.embarcacion || '',
     orden_compra: project.orden_compra || '',
     fecha_ingreso: project.fecha_ingreso || '',
-    cant_aparejos_reparar: project.cant_aparejos_reparar || 0,
-    codigos_aparejos: project.codigos_aparejos || '',
     cant_rodamientos_cambiar: project.cant_rodamientos_cambiar || 0,
     codigos_rodamientos: project.codigos_rodamientos || '',
     cant_cancamos_cambiar: project.cant_cancamos_cambiar || 0,
     codigos_cancamos: project.codigos_cancamos || '',
     cant_pines_cambiar: project.cant_pines_cambiar || 0,
     codigos_pines: project.codigos_pines || '',
+    cant_poleas_cambiar: project.cant_poleas_cambiar || 0,
+    codigos_poleas: project.codigos_poleas || '',
+    cant_cascos_cambiar: project.cant_cascos_cambiar || 0,
+    codigos_cascos: project.codigos_cascos || '',
   });
 
   const supabase = createClient();
@@ -69,8 +71,8 @@ export function MaintenanceDetails({ project, dailyProgress }: Props) {
     }));
   };
 
-  const DisplayField = ({ label, value, name, type = "text" }: { label: string, value: string | number | null | undefined, name: string, type?: string }) => (
-    <div>
+  const renderDisplayField = (label: string, value: string | number | null | undefined, name: string, type = "text") => (
+    <div key={name}>
       <p className="text-[10px] font-black text-surface-200/30 uppercase mb-1 tracking-tighter">
         {label}
       </p>
@@ -89,6 +91,56 @@ export function MaintenanceDetails({ project, dailyProgress }: Props) {
       )}
     </div>
   );
+
+  const renderCategory = (title: string, qtyName: string, codesName: string, prefix: string) => {
+    const qty = formData[qtyName as keyof typeof formData] as number;
+    const codes = formData[codesName as keyof typeof formData] as string;
+
+    return (
+      <div className="space-y-3">
+        <p className="text-[10px] font-black text-accent-400/70 uppercase tracking-widest">{title}</p>
+        {isEditing ? (
+          <>
+            <input
+              type="number"
+              min="0"
+              name={qtyName}
+              value={qty}
+              onChange={handleChange}
+              className="w-full text-sm text-surface-100 font-medium bg-surface-100/10 px-3 py-1.5 rounded-lg border border-surface-200/20 focus:border-accent-400 outline-none transition-all"
+            />
+            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+              {Array.from({ length: qty }).map((_, i) => {
+                const codesArray = codes ? codes.split(',') : [];
+                return (
+                  <input
+                    key={i}
+                    type="text"
+                    placeholder={`${prefix}-${i + 1}`}
+                    value={codesArray[i] || ''}
+                    onChange={(e) => {
+                      const newCodes = [...codesArray];
+                      while (newCodes.length < qty) newCodes.push('');
+                      newCodes[i] = e.target.value;
+                      setFormData(prev => ({ ...prev, [codesName]: newCodes.slice(0, qty).join(',') }));
+                    }}
+                    className="w-full text-[10px] text-surface-100 font-medium bg-surface-100/10 px-2 py-1 rounded border border-surface-200/10 focus:border-accent-400 outline-none"
+                  />
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-surface-100 font-medium bg-surface-100/5 px-3 py-1.5 rounded-lg border border-surface-200/5">
+              Cant: {qty}
+            </p>
+            <CodeStatusList codes={codes} dailyProgress={dailyProgress} />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 fade-in pb-10">
@@ -121,190 +173,20 @@ export function MaintenanceDetails({ project, dailyProgress }: Props) {
 
       <div className="glass-card p-6 border-accent-400/5 shadow-sm rounded-2xl bg-white max-w-4xl">
         <div className="space-y-3">
-          <DisplayField label="CLIENTE" value={formData.cliente} name="cliente" />
-          <DisplayField label="EMBARCACIÓN PESQUERA" value={formData.embarcacion} name="embarcacion" />
-          <DisplayField label="ORDEN DE COMPRA" value={formData.orden_compra} name="orden_compra" />
-          <DisplayField label="FECHA DE INGRESO" value={formData.fecha_ingreso} name="fecha_ingreso" type="date" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-surface-100/5 p-6 rounded-2xl border border-surface-200/5 mt-4">
-            {/* Category: Aparejos */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Aparejos a Reparar</p>
-              {isEditing ? (
-                <>
-                  <input
-                    type="number"
-                    min="0"
-                    name="cant_aparejos_reparar"
-                    value={formData.cant_aparejos_reparar}
-                    onChange={handleChange}
-                    className="w-full text-sm text-surface-100 font-medium bg-surface-100/10 px-3 py-1.5 rounded-lg border border-surface-200/20 focus:border-accent-400 outline-none transition-all"
-                  />
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                    {Array.from({ length: formData.cant_aparejos_reparar }).map((_, i) => {
-                      const codesArray = formData.codigos_aparejos ? formData.codigos_aparejos.split(',') : [];
-                      return (
-                        <input
-                          key={i}
-                          type="text"
-                          placeholder={`A-${i + 1}`}
-                          value={codesArray[i] || ''}
-                          onChange={(e) => {
-                            const newCodes = [...codesArray];
-                            const total = formData.cant_aparejos_reparar;
-                            while (newCodes.length < total) newCodes.push('');
-                            newCodes[i] = e.target.value;
-                            setFormData(prev => ({ ...prev, codigos_aparejos: newCodes.slice(0, total).join(',') }));
-                          }}
-                          className="w-full text-[10px] text-surface-100 font-medium bg-surface-100/10 px-2 py-1 rounded border border-surface-200/10 focus:border-accent-400 outline-none"
-                        />
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm text-surface-100 font-medium bg-surface-100/5 px-3 py-1.5 rounded-lg border border-surface-200/5">
-                    Cant: {formData.cant_aparejos_reparar}
-                  </p>
-                  <CodeStatusList codes={formData.codigos_aparejos} dailyProgress={dailyProgress} />
-                </div>
-              )}
-            </div>
+          {renderDisplayField("CLIENTE", formData.cliente, "cliente")}
+          {renderDisplayField("EMBARCACIÓN PESQUERA", formData.embarcacion, "embarcacion")}
+          {renderDisplayField("ORDEN DE COMPRA", formData.orden_compra, "orden_compra")}
+          {renderDisplayField("FECHA DE INGRESO", formData.fecha_ingreso, "fecha_ingreso", "date")}
+        </div>
 
-            {/* Category: Rodamientos */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Rodamientos</p>
-              {isEditing ? (
-                <>
-                  <input
-                    type="number"
-                    min="0"
-                    name="cant_rodamientos_cambiar"
-                    value={formData.cant_rodamientos_cambiar}
-                    onChange={handleChange}
-                    className="w-full text-sm text-surface-100 font-medium bg-surface-100/10 px-3 py-1.5 rounded-lg border border-surface-200/20 focus:border-accent-400 outline-none transition-all"
-                  />
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                    {Array.from({ length: formData.cant_rodamientos_cambiar }).map((_, i) => {
-                      const codesArray = formData.codigos_rodamientos ? formData.codigos_rodamientos.split(',') : [];
-                      return (
-                        <input
-                          key={i}
-                          type="text"
-                          placeholder={`R-${i + 1}`}
-                          value={codesArray[i] || ''}
-                          onChange={(e) => {
-                            const newCodes = [...codesArray];
-                            const total = formData.cant_rodamientos_cambiar;
-                            while (newCodes.length < total) newCodes.push('');
-                            newCodes[i] = e.target.value;
-                            setFormData(prev => ({ ...prev, codigos_rodamientos: newCodes.slice(0, total).join(',') }));
-                          }}
-                          className="w-full text-[10px] text-surface-100 font-medium bg-surface-100/10 px-2 py-1 rounded border border-surface-200/10 focus:border-accent-400 outline-none"
-                        />
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm text-surface-100 font-medium bg-surface-100/5 px-3 py-1.5 rounded-lg border border-surface-200/5">
-                    Cant: {formData.cant_rodamientos_cambiar}
-                  </p>
-                  <CodeStatusList codes={formData.codigos_rodamientos} dailyProgress={dailyProgress} />
-                </div>
-              )}
-            </div>
-
-            {/* Category: Cárcamos */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Cárcamos</p>
-              {isEditing ? (
-                <>
-                  <input
-                    type="number"
-                    min="0"
-                    name="cant_cancamos_cambiar"
-                    value={formData.cant_cancamos_cambiar}
-                    onChange={handleChange}
-                    className="w-full text-sm text-surface-100 font-medium bg-surface-100/10 px-3 py-1.5 rounded-lg border border-surface-200/20 focus:border-accent-400 outline-none transition-all"
-                  />
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                    {Array.from({ length: formData.cant_cancamos_cambiar }).map((_, i) => {
-                      const codesArray = formData.codigos_cancamos ? formData.codigos_cancamos.split(',') : [];
-                      return (
-                        <input
-                          key={i}
-                          type="text"
-                          placeholder={`C-${i + 1}`}
-                          value={codesArray[i] || ''}
-                          onChange={(e) => {
-                            const newCodes = [...codesArray];
-                            const total = formData.cant_cancamos_cambiar;
-                            while (newCodes.length < total) newCodes.push('');
-                            newCodes[i] = e.target.value;
-                            setFormData(prev => ({ ...prev, codigos_cancamos: newCodes.slice(0, total).join(',') }));
-                          }}
-                          className="w-full text-[10px] text-surface-100 font-medium bg-surface-100/10 px-2 py-1 rounded border border-surface-200/10 focus:border-accent-400 outline-none"
-                        />
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm text-surface-100 font-medium bg-surface-100/5 px-3 py-1.5 rounded-lg border border-surface-200/5">
-                    Cant: {formData.cant_cancamos_cambiar}
-                  </p>
-                  <CodeStatusList codes={formData.codigos_cancamos} dailyProgress={dailyProgress} />
-                </div>
-              )}
-            </div>
-
-            {/* Category: Pines */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Pines</p>
-              {isEditing ? (
-                <>
-                  <input
-                    type="number"
-                    min="0"
-                    name="cant_pines_cambiar"
-                    value={formData.cant_pines_cambiar}
-                    onChange={handleChange}
-                    className="w-full text-sm text-surface-100 font-medium bg-surface-100/10 px-3 py-1.5 rounded-lg border border-surface-200/20 focus:border-accent-400 outline-none transition-all"
-                  />
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                    {Array.from({ length: formData.cant_pines_cambiar }).map((_, i) => {
-                      const codesArray = formData.codigos_pines ? formData.codigos_pines.split(',') : [];
-                      return (
-                        <input
-                          key={i}
-                          type="text"
-                          placeholder={`P-${i + 1}`}
-                          value={codesArray[i] || ''}
-                          onChange={(e) => {
-                            const newCodes = [...codesArray];
-                            const total = formData.cant_pines_cambiar;
-                            while (newCodes.length < total) newCodes.push('');
-                            newCodes[i] = e.target.value;
-                            setFormData(prev => ({ ...prev, codigos_pines: newCodes.slice(0, total).join(',') }));
-                          }}
-                          className="w-full text-[10px] text-surface-100 font-medium bg-surface-100/10 px-2 py-1 rounded border border-surface-200/10 focus:border-accent-400 outline-none"
-                        />
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm text-surface-100 font-medium bg-surface-100/5 px-3 py-1.5 rounded-lg border border-surface-200/5">
-                    Cant: {formData.cant_pines_cambiar}
-                  </p>
-                  <CodeStatusList codes={formData.codigos_pines} dailyProgress={dailyProgress} />
-                </div>
-              )}
-            </div>
+        <div className="mt-8">
+          <h3 className="text-sm font-black text-surface-200 uppercase tracking-widest mb-4">APAREJOS A REPARAR</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-surface-100/5 p-6 rounded-2xl border border-surface-200/5 mt-4">
+            {renderCategory('Rodamientos', 'cant_rodamientos_cambiar', 'codigos_rodamientos', 'R')}
+            {renderCategory('Cáncamos', 'cant_cancamos_cambiar', 'codigos_cancamos', 'C')}
+            {renderCategory('Pines', 'cant_pines_cambiar', 'codigos_pines', 'P')}
+            {renderCategory('Poleas', 'cant_poleas_cambiar', 'codigos_poleas', 'PL')}
+            {renderCategory('Cascos', 'cant_cascos_cambiar', 'codigos_cascos', 'CS')}
           </div>
         </div>
       </div>

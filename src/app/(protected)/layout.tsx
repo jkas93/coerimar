@@ -24,7 +24,7 @@ export default async function ProtectedLayout({
   // Get user profile
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, avatar_url')
+    .select('full_name, avatar_url, is_superadmin')
     .eq('id', user.id)
     .single();
 

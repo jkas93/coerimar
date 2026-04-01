@@ -14,14 +14,16 @@ export function NewProjectButton() {
   const [embarcacion, setEmbarcacion] = useState('');
   const [ordenCompra, setOrdenCompra] = useState('');
   const [fechaIngreso, setFechaIngreso] = useState('');
-  const [cantAparejosReparar, setCantAparejosReparar] = useState(0);
-  const [codigosAparejos, setCodigosAparejos] = useState('');
   const [cantRodamientosCambiar, setCantRodamientosCambiar] = useState(0);
   const [codigosRodamientos, setCodigosRodamientos] = useState('');
   const [cantCancamosCambiar, setCantCancamosCambiar] = useState(0);
   const [codigosCancamos, setCodigosCancamos] = useState('');
   const [cantPinesCambiar, setCantPinesCambiar] = useState(0);
   const [codigosPines, setCodigosPines] = useState('');
+  const [cantPoleasCambiar, setCantPoleasCambiar] = useState(0);
+  const [codigosPoleas, setCodigosPoleas] = useState('');
+  const [cantCascosCambiar, setCantCascosCambiar] = useState(0);
+  const [codigosCascos, setCodigosCascos] = useState('');
 
   const router = useRouter();
   const supabase = createClient();
@@ -57,14 +59,16 @@ export function NewProjectButton() {
         embarcacion,
         orden_compra: ordenCompra,
         fecha_ingreso: fechaIngreso || null,
-        cant_aparejos_reparar: cantAparejosReparar,
-        codigos_aparejos: codigosAparejos,
         cant_rodamientos_cambiar: cantRodamientosCambiar,
         codigos_rodamientos: codigosRodamientos,
         cant_cancamos_cambiar: cantCancamosCambiar,
         codigos_cancamos: codigosCancamos,
         cant_pines_cambiar: cantPinesCambiar,
         codigos_pines: codigosPines,
+        cant_poleas_cambiar: cantPoleasCambiar,
+        codigos_poleas: codigosPoleas,
+        cant_cascos_cambiar: cantCascosCambiar,
+        codigos_cascos: codigosCascos,
       })
       .select()
       .single();
@@ -115,17 +119,15 @@ export function NewProjectButton() {
           .single();
 
         if (item) {
-          const taskPromises = stages.map((stage, index) => {
-            return supabase.from('activities').insert({
-              item_id: item.id,
-              name: stage,
-              start_date: calculatedStartDate,
-              end_date: calculatedEndDate,
-              sort_order: index + 1,
-              weight: Number((100 / stages.length).toFixed(2))
-            });
-          });
-          await Promise.all(taskPromises);
+          const bulkActivities = stages.map((stage, index) => ({
+            item_id: item.id,
+            name: stage,
+            start_date: calculatedStartDate,
+            end_date: calculatedEndDate,
+            sort_order: index + 1,
+            weight: Number((100 / stages.length).toFixed(2))
+          }));
+          await supabase.from('activities').insert(bulkActivities);
         }
       }
 
@@ -140,16 +142,64 @@ export function NewProjectButton() {
     setEmbarcacion('');
     setOrdenCompra('');
     setFechaIngreso('');
-    setCantAparejosReparar(0);
-    setCodigosAparejos('');
     setCantRodamientosCambiar(0);
     setCodigosRodamientos('');
     setCantCancamosCambiar(0);
     setCodigosCancamos('');
     setCantPinesCambiar(0);
     setCodigosPines('');
+    setCantPoleasCambiar(0);
+    setCodigosPoleas('');
+    setCantCascosCambiar(0);
+    setCodigosCascos('');
     setError(null);
     setLoading(false);
+  };
+
+  const renderCategory = (
+    title: string,
+    qtyValue: number,
+    qtySetter: (val: number) => void,
+    codesValue: string,
+    codesSetter: (val: string) => void,
+    prefix: string
+  ) => {
+    return (
+      <div className="space-y-3">
+        <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">{title}</label>
+        <input 
+          type="number" 
+          min="0" 
+          value={qtyValue} 
+          onChange={(e) => qtySetter(Math.max(0, parseInt(e.target.value) || 0))} 
+          className="input-field py-1.5" 
+          placeholder="Cant" 
+        />
+        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+          {Array.from({ length: qtyValue }).map((_, i) => {
+            const codesArray = codesValue ? codesValue.split(',') : [];
+            return (
+              <input
+                key={i}
+                type="text"
+                placeholder={`${prefix}-${i + 1}`}
+                value={codesArray[i] || ''}
+                onChange={(e) => {
+                  const newCodes = [...codesArray];
+                  while (newCodes.length < qtyValue) newCodes.push('');
+                  newCodes[i] = e.target.value;
+                  codesSetter(newCodes.slice(0, qtyValue).join(','));
+                }}
+                className="input-field py-1 text-[9px]"
+              />
+            );
+          })}
+          {qtyValue === 0 && (
+            <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -204,133 +254,14 @@ export function NewProjectButton() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-surface-100/5 p-6 rounded-2xl border border-surface-200/5">
-                  {/* Category: Aparejos */}
-                  <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Aparejos a Reparar</label>
-                    <input type="number" min="0" value={cantAparejosReparar} onChange={(e) => {
-                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                      setCantAparejosReparar(val);
-                    }} className="input-field py-1.5" placeholder="Cant" />
-                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                      {Array.from({ length: cantAparejosReparar }).map((_, i) => {
-                        const codesArray = codigosAparejos ? codigosAparejos.split(',') : [];
-                        return (
-                          <input
-                            key={i}
-                            type="text"
-                            placeholder={`A-${i + 1}`}
-                            value={codesArray[i] || ''}
-                            onChange={(e) => {
-                              const newCodes = [...codesArray];
-                              while (newCodes.length < cantAparejosReparar) newCodes.push('');
-                              newCodes[i] = e.target.value;
-                              setCodigosAparejos(newCodes.slice(0, cantAparejosReparar).join(','));
-                            }}
-                            className="input-field py-1 text-[9px]"
-                          />
-                        );
-                      })}
-                      {cantAparejosReparar === 0 && (
-                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Category: Rodamientos */}
-                  <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Rodamientos</label>
-                    <input type="number" min="0" value={cantRodamientosCambiar} onChange={(e) => {
-                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                      setCantRodamientosCambiar(val);
-                    }} className="input-field py-1.5" placeholder="Cant" />
-                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                      {Array.from({ length: cantRodamientosCambiar }).map((_, i) => {
-                        const codesArray = codigosRodamientos ? codigosRodamientos.split(',') : [];
-                        return (
-                          <input
-                            key={i}
-                            type="text"
-                            placeholder={`R-${i + 1}`}
-                            value={codesArray[i] || ''}
-                            onChange={(e) => {
-                              const newCodes = [...codesArray];
-                              while (newCodes.length < cantRodamientosCambiar) newCodes.push('');
-                              newCodes[i] = e.target.value;
-                              setCodigosRodamientos(newCodes.slice(0, cantRodamientosCambiar).join(','));
-                            }}
-                            className="input-field py-1 text-[9px]"
-                          />
-                        );
-                      })}
-                      {cantRodamientosCambiar === 0 && (
-                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Category: Cárcamos */}
-                  <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Cárcamos</label>
-                    <input type="number" min="0" value={cantCancamosCambiar} onChange={(e) => {
-                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                      setCantCancamosCambiar(val);
-                    }} className="input-field py-1.5" placeholder="Cant" />
-                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                      {Array.from({ length: cantCancamosCambiar }).map((_, i) => {
-                        const codesArray = codigosCancamos ? codigosCancamos.split(',') : [];
-                        return (
-                          <input
-                            key={i}
-                            type="text"
-                            placeholder={`C-${i + 1}`}
-                            value={codesArray[i] || ''}
-                            onChange={(e) => {
-                              const newCodes = [...codesArray];
-                              while (newCodes.length < cantCancamosCambiar) newCodes.push('');
-                              newCodes[i] = e.target.value;
-                              setCodigosCancamos(newCodes.slice(0, cantCancamosCambiar).join(','));
-                            }}
-                            className="input-field py-1 text-[9px]"
-                          />
-                        );
-                      })}
-                      {cantCancamosCambiar === 0 && (
-                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Category: Pines */}
-                  <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-accent-400/70 uppercase tracking-widest">Pines</label>
-                    <input type="number" min="0" value={cantPinesCambiar} onChange={(e) => {
-                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                      setCantPinesCambiar(val);
-                    }} className="input-field py-1.5" placeholder="Cant" />
-                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                      {Array.from({ length: cantPinesCambiar }).map((_, i) => {
-                        const codesArray = codigosPines ? codigosPines.split(',') : [];
-                        return (
-                          <input
-                            key={i}
-                            type="text"
-                            placeholder={`P-${i + 1}`}
-                            value={codesArray[i] || ''}
-                            onChange={(e) => {
-                              const newCodes = [...codesArray];
-                              while (newCodes.length < cantPinesCambiar) newCodes.push('');
-                              newCodes[i] = e.target.value;
-                              setCodigosPines(newCodes.slice(0, cantPinesCambiar).join(','));
-                            }}
-                            className="input-field py-1 text-[9px]"
-                          />
-                        );
-                      })}
-                      {cantPinesCambiar === 0 && (
-                        <p className="col-span-full text-[9px] text-surface-200/20 italic py-2">Sin códigos</p>
-                      )}
-                    </div>
+                <div className="mt-8">
+                  <h3 className="text-sm font-black text-surface-200 uppercase tracking-widest mb-4">APAREJOS A REPARAR</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-surface-100/5 p-6 rounded-2xl border border-surface-200/5">
+                    {renderCategory('Rodamientos', cantRodamientosCambiar, setCantRodamientosCambiar, codigosRodamientos, setCodigosRodamientos, 'R')}
+                    {renderCategory('Cáncamos', cantCancamosCambiar, setCantCancamosCambiar, codigosCancamos, setCodigosCancamos, 'C')}
+                    {renderCategory('Pines', cantPinesCambiar, setCantPinesCambiar, codigosPines, setCodigosPines, 'P')}
+                    {renderCategory('Poleas', cantPoleasCambiar, setCantPoleasCambiar, codigosPoleas, setCodigosPoleas, 'PL')}
+                    {renderCategory('Cascos', cantCascosCambiar, setCantCascosCambiar, codigosCascos, setCodigosCascos, 'CS')}
                   </div>
                 </div>
               </div>

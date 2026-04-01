@@ -32,7 +32,20 @@ export default async function ProjectPage({ params }: Props) {
   }
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isOwner = user?.id === project.owner_id;
+  
+  if (!user) {
+    return null;
+  }
+
+  // Superadmin check
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_superadmin')
+    .eq('id', user.id)
+    .single();
+
+  const isSuperadmin = profile?.is_superadmin === true;
+  const isOwner = isSuperadmin || (user?.id === project.owner_id);
 
   const partidas = partidasRes.data || [];
   const alerts = alertsRes.data || [];

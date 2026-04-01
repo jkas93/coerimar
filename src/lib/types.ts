@@ -6,6 +6,8 @@ export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  email?: string;
+  is_superadmin?: boolean;
   created_at: string;
 }
 
@@ -19,19 +21,21 @@ export interface Project {
   share_token: string;
   created_at: string;
   updated_at: string;
-  // Maintenance fields
+  // Maintenance fields -> "Aparejos a Reparar" section
   cliente?: string;
   embarcacion?: string;
   orden_compra?: string;
   fecha_ingreso?: string;
-  cant_aparejos_reparar?: number;
-  codigos_aparejos?: string;
   cant_rodamientos_cambiar?: number;
   codigos_rodamientos?: string;
   cant_cancamos_cambiar?: number;
   codigos_cancamos?: string;
   cant_pines_cambiar?: number;
   codigos_pines?: string;
+  cant_poleas_cambiar?: number;
+  codigos_poleas?: string;
+  cant_cascos_cambiar?: number;
+  codigos_cascos?: string;
 }
 
 export interface ProjectMember {
