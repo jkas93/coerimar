@@ -24,14 +24,7 @@ export interface Project {
   embarcacion?: string;
   orden_compra?: string;
   fecha_ingreso?: string;
-  cant_aparejos_reparar?: number;
-  codigos_aparejos?: string;
-  cant_rodamientos_cambiar?: number;
-  codigos_rodamientos?: string;
-  cant_cancamos_cambiar?: number;
-  codigos_cancamos?: string;
-  cant_pines_cambiar?: number;
-  codigos_pines?: string;
+  cant_productos?: number;
 }
 
 export interface ProjectMember {
@@ -80,7 +73,6 @@ export interface DailyProgress {
   has_restriction?: boolean;
   restriction_reason?: string | null;
   photo_urls?: string[] | null;
-  completed_codes?: string | null;
 }
 
 export interface Alert {
@@ -160,4 +152,76 @@ export interface GanttLink {
   source: string;
   target: string;
   type: string;
+}
+
+// =============================================================
+// Product and Element System Types (P.U.L.S.O.)
+// =============================================================
+
+export const ELEMENT_TYPES = ['rodamientos', 'cancamos', 'pines', 'poleas', 'cascos'] as const;
+export type ElementType = typeof ELEMENT_TYPES[number];
+
+export const ELEMENT_LABELS: Record<ElementType, string> = {
+  rodamientos: 'Rodamientos',
+  cancamos: 'Cáncamos',
+  pines: 'Pines',
+  poleas: 'Poleas',
+  cascos: 'Cascos',
+};
+
+export const MAINTENANCE_STAGES = [
+  'ETAPA DE MANTENIMIENTO',
+  'INSPECCION VISUAL INICIAL',
+  'DESMONTAJE DE APAREJOS',
+  'ARENADO DE APAREJOS',
+  'BASE EPOXICA INICIAL',
+  'SOLDADO DE POLEAS',
+  'MECANIZADO DE POLEAS',
+  'BASE EPOXICA DE POLEAS',
+  'SOLDADO DE CASCOS',
+  'ESMERILADO DE CASCOS',
+  'BASE EPOXICA DE CASCOS',
+  'MECANIZADO O CAMBIO DE PINES',
+  'CONTROL DE CALIDAD DE COMPONENTES',
+  'ENSAMBLE DE APAREJOS DE IZAJE',
+  'PINTURA Y PROTECCIÓN DE APAREJO',
+  'EMBALADO DE APAREJOS',
+  'PRODUCTO TERMINADO',
+] as const;
+
+export const STAGE_ELEMENT_MAP: Record<string, ElementType[] | null> = {
+  'SOLDADO DE POLEAS': ['poleas'],
+  'MECANIZADO DE POLEAS': ['poleas'],
+  'BASE EPOXICA DE POLEAS': ['poleas'],
+  'SOLDADO DE CASCOS': ['cascos'],
+  'ESMERILADO DE CASCOS': ['cascos'],
+  'BASE EPOXICA DE CASCOS': ['cascos'],
+  'MECANIZADO O CAMBIO DE PINES': ['pines'],
+};
+
+export interface Producto {
+  id: string;
+  project_id: string;
+  codigo_unico: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ProductElement {
+  id: string;
+  producto_id: string;
+  element_type: ElementType;
+  codigo_unico: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ElementCheck {
+  id: string;
+  activity_id: string;
+  product_element_id: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_at: string;
 }

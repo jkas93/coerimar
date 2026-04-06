@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Project, Alert, DailyProgress, PartidaWithItems } from '@/lib/types';
+import { Project, Alert, DailyProgress, PartidaWithItems, Producto, ElementCheck, ProductElement } from '@/lib/types';
 import { GanttView } from '@/components/gantt/GanttView';
 import { SCurveChart } from '@/components/charts/SCurveChart';
 import { AlertBanner } from '@/components/alerts/AlertBanner';
@@ -14,6 +14,9 @@ interface Props {
   dailyProgress: DailyProgress[];
   alerts: Alert[];
   milestones: unknown[];
+  productos?: Producto[];
+  productElements?: ProductElement[];
+  elementChecks?: ElementCheck[];
 }
 
 const tabs = [
@@ -24,7 +27,7 @@ const tabs = [
   { id: 'alerts', label: 'Alertas', icon: 'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0' },
 ];
 
-export function ProjectTabs({ project, partidas, dailyProgress, alerts, milestones }: Props) {
+export function ProjectTabs({ project, partidas, dailyProgress, alerts, milestones, productos = [], productElements = [], elementChecks = [] }: Props) {
   const [activeTab, setActiveTab] = useState('mantenimiento');
 
   const unreadAlerts = alerts.filter((a) => !a.is_read).length;
@@ -60,13 +63,18 @@ export function ProjectTabs({ project, partidas, dailyProgress, alerts, mileston
           <GanttView
             projectId={project.id}
             partidas={partidas}
-            dailyProgress={dailyProgress}
+            productos={productos}
+            productElements={productElements}
+            elementChecks={elementChecks}
           />
         )}
         {activeTab === 'mantenimiento' && (
           <MaintenanceDetails
             project={project}
-            dailyProgress={dailyProgress}
+            partidas={partidas}
+            productos={productos}
+            productElements={productElements}
+            elementChecks={elementChecks}
           />
         )}
         {activeTab === 'scurve' && (
@@ -82,7 +90,9 @@ export function ProjectTabs({ project, partidas, dailyProgress, alerts, mileston
             projectId={project.id}
             project={project}
             partidas={partidas}
-            dailyProgress={dailyProgress}
+            productos={productos}
+            productElements={productElements}
+            elementChecks={elementChecks}
           />
         )}
         {activeTab === 'alerts' && (

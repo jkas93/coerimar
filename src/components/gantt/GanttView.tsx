@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { addDays, subDays, parseISO, format } from 'date-fns';
-import { MilestoneModal } from './MilestoneModal';
-
-import { Partida, DailyProgress } from '@/lib/types';
+import { StageDetailPanel } from './StageDetailPanel';
+import { Partida, DailyProgress, Producto, ElementCheck, ProductElement, STAGE_ELEMENT_MAP, ELEMENT_TYPES } from '@/lib/types';
+import { MilestoneModal } from './MilestoneModal'; // Add missing import if needed
 
 interface Props {
   projectId: string;
   partidas: any[];
-  dailyProgress?: any[];
+  productos?: Producto[];
+  productElements?: ProductElement[];
+  elementChecks?: ElementCheck[];
   readonly?: boolean;
 }
 
@@ -19,7 +21,7 @@ interface Props {
  * GanttView — Renders an interactive Gantt chart using dhtmlx-gantt.
  * Shows the hierarchy: Partida → Item → Activity with editable weights.
  */
-export function GanttView({ projectId, partidas, dailyProgress = [], readonly = false }: Props) {
+export function GanttView({ projectId, partidas, productos = [], productElements = [], elementChecks = [], readonly = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttInitialized = useRef(false);
   const router = useRouter();
@@ -33,6 +35,7 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
     start_date: string;
     end_date: string;
   } | null>(null);
+  const [activeStage, setActiveStage] = useState<any>(null);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [isOwner, setIsOwner] = useState(false);
 
@@ -208,8 +211,9 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
                   <span style="${titleColor} overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" title="${task.text}">${task.text} ${weightBadge}</span>
                   <span style="font-size:10px;color:rgba(100,116,139,0.7);margin-top:2px;">${prog}% | ${dur}d</span>
                 </div>
-                ${!readonly && task.db_type === 'activity' ? `
+                 ${!readonly && task.db_type === 'activity' ? `
                 <div class="gantt-actions-container" style="display:flex;gap:12px;align-items:center;opacity:0;transition:opacity 0.2s;">
+                   <div class="action-btn hover:text-accent-400" data-action="checks" style="cursor:pointer;" title="Registrar Avance (Checklist)"><svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
                    <div class="action-btn hover:text-primary-400" data-action="edit" style="cursor:pointer;" title="Editar rango de fechas">${editIcon}</div>
                 </div>
                 ` : ''}
@@ -253,8 +257,12 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
           });
 
           for (const activity of (item.activities || [])) {
-            const taskProgressLogs = dailyProgress.filter((dp: any) => dp.activity_id === activity.id);
-            const totalProgress = taskProgressLogs.reduce((sum: number, dp: any) => sum + Number(dp.progress_percent), 0);
+            // P.U.L.S.O. Progress calculation based on physical elements
+            const elementsToShow = STAGE_ELEMENT_MAP[activity.name] || ELEMENT_TYPES;
+            const targetElements = productElements.filter(pe => elementsToShow.includes(pe.element_type));
+            const actChecks = elementChecks.filter(c => c.activity_id === activity.id && targetElements.find(pe => pe.id === c.product_element_id));
+            const completed = actChecks.filter(c => c.is_completed).length;
+            const progress = targetElements.length > 0 ? completed / targetElements.length : 0;
 
             tasks.push({
               id: `a_${activity.id}`,
@@ -264,7 +272,7 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
               // DHTMLX requires exclusive end dates. We add 1 day so tasks look inclusive on screen.
               end_date: activity.end_date ? format(addDays(parseISO(activity.end_date), 1), 'yyyy-MM-dd') : null,
               weight: activity.weight,
-              progress: Math.min(totalProgress / 100, 1),
+              progress: progress,
               color: '#F7C20E', // COERIMAR gold
               progressColor: '#daa90c',
               db_type: 'activity',
@@ -299,7 +307,24 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
               end_date: format(subDays(task.end_date, 1), 'yyyy-MM-dd')
             });
             return false;
+          } else if (action === 'checks') {
+             const task = gantt.getTask(id);
+             setActiveStage({
+                id: task.db_id,
+                name: task.text,
+                progress: Math.round((task.progress || 0) * 100)
+             });
+             return false;
           }
+        }
+        // Also open checks on double click for activities
+        if (gantt.getTask(id).db_type === 'activity') {
+             const task = gantt.getTask(id);
+             setActiveStage({
+                id: task.db_id,
+                name: task.text,
+                progress: Math.round((task.progress || 0) * 100)
+             });
         }
         return true;
       });
@@ -347,7 +372,7 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
         });
       }
     };
-  }, [partidas, dailyProgress]);
+  }, [partidas, productos, productElements, elementChecks]);
 
   // Handle Zoom change safely
   const handleZoomChange = (level: string) => {
@@ -659,6 +684,20 @@ export function GanttView({ projectId, partidas, dailyProgress = [], readonly = 
             </div>
           </div>
         </div>
+      )}
+
+      {activeStage && (
+        <StageDetailPanel
+          activity={activeStage}
+          productos={productos}
+          productElements={productElements}
+          elementChecks={elementChecks}
+          onClose={() => setActiveStage(null)}
+          onCheckUpdate={() => {
+            // Use router.refresh() to pull new element_checks
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

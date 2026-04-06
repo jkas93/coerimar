@@ -16,12 +16,13 @@ export default async function ProjectPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  // Fetch project, partidas, alerts and milestones in parallel
-  const [projectRes, partidasRes, alertsRes, milestonesRes] = await Promise.all([
+  // Fetch project, partidas, alerts, milestones, and productos in parallel
+  const [projectRes, partidasRes, alertsRes, milestonesRes, productosRes] = await Promise.all([
     supabase.from('projects').select('*').eq('id', id).single(),
     supabase.from('partidas').select('*, items (*, activities (*))').eq('project_id', id).order('sort_order'),
     supabase.from('alerts').select('*').eq('project_id', id).order('created_at', { ascending: false }).limit(20),
-    supabase.from('project_milestones').select('*').eq('project_id', id).order('date')
+    supabase.from('project_milestones').select('*').eq('project_id', id).order('date'),
+    supabase.from('productos').select('*').eq('project_id', id).order('sort_order')
   ]);
 
   const project = projectRes.data;
@@ -37,6 +38,7 @@ export default async function ProjectPage({ params }: Props) {
   const partidas = partidasRes.data || [];
   const alerts = alertsRes.data || [];
   const milestones = milestonesRes.data || [];
+  const productos = productosRes.data || [];
 
   // Fetch all daily progress for this project's activities (after we have activity ids)
   const activityIds = partidas
@@ -52,6 +54,26 @@ export default async function ProjectPage({ params }: Props) {
       .in('activity_id', activityIds)
       .order('date');
     dailyProgress = data || [];
+  }
+
+  // Fetch product_elements for the products
+  let productElements: any[] = [];
+  if (productos.length > 0) {
+    const { data } = await supabase
+      .from('product_elements')
+      .select('*')
+      .in('producto_id', productos.map(p => p.id));
+    productElements = data || [];
+  }
+
+  // Fetch element checks matching the product_elements
+  let elementChecks: any[] = [];
+  if (productElements.length > 0) {
+    const { data } = await supabase
+      .from('element_checks')
+      .select('*')
+      .in('product_element_id', productElements.map(pe => pe.id));
+    elementChecks = data || [];
   }
 
   return (
@@ -100,6 +122,9 @@ export default async function ProjectPage({ params }: Props) {
         dailyProgress={dailyProgress}
         alerts={alerts || []}
         milestones={milestones || []}
+        productos={productos}
+        productElements={productElements}
+        elementChecks={elementChecks}
       />
     </div>
   );
