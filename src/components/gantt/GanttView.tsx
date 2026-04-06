@@ -11,9 +11,10 @@ import { MilestoneModal } from './MilestoneModal'; // Add missing import if need
 interface Props {
   projectId: string;
   partidas: any[];
+  elementChecks?: ElementCheck[];
+  dailyProgress?: any[];
   productos?: Producto[];
   productElements?: ProductElement[];
-  elementChecks?: ElementCheck[];
   readonly?: boolean;
 }
 
@@ -21,7 +22,7 @@ interface Props {
  * GanttView — Renders an interactive Gantt chart using dhtmlx-gantt.
  * Shows the hierarchy: Partida → Item → Activity with editable weights.
  */
-export function GanttView({ projectId, partidas, productos = [], productElements = [], elementChecks = [], readonly = false }: Props) {
+export function GanttView({ projectId, partidas, productos = [], productElements = [], elementChecks = [], dailyProgress = [], readonly = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttInitialized = useRef(false);
   const router = useRouter();
@@ -692,11 +693,11 @@ export function GanttView({ projectId, partidas, productos = [], productElements
           productos={productos}
           productElements={productElements}
           elementChecks={elementChecks}
-          onClose={() => setActiveStage(null)}
           onCheckUpdate={() => {
             // Use router.refresh() to pull new element_checks
             router.refresh();
           }}
+          recordDate={new Date().toLocaleDateString('en-CA')}
         />
       )}
     </div>
